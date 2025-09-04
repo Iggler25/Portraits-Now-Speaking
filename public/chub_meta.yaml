@@ -2,9 +2,6 @@ name: "Portraits — Now Speaking for Lilith's Aethial"
 position: RIGHT
 config_schema: '@config.schema.json'
 
-github_path: 'https://github.com/Iggler25/Portraits-Now-Speaking-Liliths_Aethiel'
-extension_id: 'portraits-now-speaking-7a71760e8166'
-
   type: object
   required: [characters]
   properties:
