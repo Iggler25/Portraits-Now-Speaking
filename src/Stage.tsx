@@ -16,11 +16,11 @@ type Config = {
   fallbackToAuthor?: boolean;
   characters: Character[];
 
-  // optional UI knobs (read from config schema)
-  portraitSize?: number;       // base width per portrait (px)
-  currencyLabel?: string;      // e.g., "C"
-  showBalance?: boolean;       // default true
-  balanceRegex?: string;       // regex to read a number, defaults to C\s*(\d…)
+  // (kept for future use – not used for layout now)
+  portraitSize?: number;
+  currencyLabel?: string;
+  showBalance?: boolean;
+  balanceRegex?: string;
 };
 
 /** =================== Roster (put your real URLs) =================== */
@@ -36,7 +36,7 @@ const DEFAULT_CHARACTERS: Character[] = [
   { name: "Tracer", aliases: ["Lena", "Oxton", "Lena Oxton"], imageUrl: "https://files.catbox.moe/5nrczz.jpg" },
   { name: "Nyssia", aliases: [], imageUrl: "https://files.catbox.moe/59ops5.jpg" },
   { name: "Morgana", aliases: [], imageUrl: "https://files.catbox.moe/63ayl4.jpg" },
-  { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/g8v18s.jpg" }, // fixed .jpg
+  { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/g8v18s.jpg" },
   { name: "Nico Robin", aliases: ["Nico", "Robin", "NicoRobin"], imageUrl: "https://files.catbox.moe/sut7qk.jpg" },
   { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/d3eitq.jpg" }
 ];
@@ -64,18 +64,15 @@ const detectSpeakersByPrefixes = (text: string, roster: Character[]): Character[
   const hits: Character[] = [];
   const seen = new Set<string>();
 
-  // Normalize smart punctuation + strip common markdown wrappers
   const normalized = text
-    .replace(/\u2013|\u2014/g, "-")  // en/em dashes -> hyphen
-    .replace(/\uFF1A/g, ":");        // full-width colon -> colon
+    .replace(/\u2013|\u2014/g, "-")
+    .replace(/\uFF1A/g, ":");
 
   for (let ln of normalized.split(/\r?\n/)) {
-    // strip leading markdown bullets/quotes/spacing
-    ln = ln.replace(/^\s*(?:>|\*|-|\d+\.)\s*/, "");          // >, *, -, "1." at start
-    ln = ln.replace(/^\s*(\*\*|__|\*)/, "");                 // opening bold/italic
-    ln = ln.replace(/(\*\*|__|\*)\s*$/, "");                 // trailing bold/italic
+    ln = ln.replace(/^\s*(?:>|\*|-|\d+\.)\s*/, "");
+    ln = ln.replace(/^\s*(\*\*|__|\*)/, "");
+    ln = ln.replace(/(\*\*|__|\*)\s*$/, "");
 
-    // Match: Name:  or  Name -   (allow quotes or nothing after punctuation)
     const m = ln.match(/^\s*([A-Za-z][\w .'\-]{0,40})\s*[:\-]\s*(?:.+)?$/);
     if (!m) continue;
 
@@ -96,34 +93,29 @@ export class Stage extends StageBase<any, any, any, Config> {
     super(data);
   }
 
-  /** Required by StageBase */
   async load() {
     return {
       success: true,
       ui: { visible: true },
       state: {
         lastSpeakers: [] as Character[],
-        balanceC: 0 as number, // start at 0 so badge can show immediately
+        balanceC: 0 as number,
       },
     };
   }
 
-  /** Required by StageBase */
   async setState(state: any) {
     (this as any).state = state;
   }
 
-  /** Required by StageBase (we do no pre-processing) */
   async beforePrompt(_input: any) {
     return {};
   }
 
-  /** Runs after the assistant replies — detect & store speakers, and parse balance */
   async afterResponse(botMessage: any): Promise<Partial<StageResponse<any, any>>> {
     const cfg: Config = (this as any).config || { characters: [] };
     const roster = cfg.characters && cfg.characters.length ? cfg.characters : DEFAULT_CHARACTERS;
 
-    // ignore user messages
     const role = (botMessage?.role || botMessage?.author?.role || "").toLowerCase();
     if (role === "user") return {} as Partial<StageResponse<any, any>>;
 
@@ -131,7 +123,6 @@ export class Stage extends StageBase<any, any, any, Config> {
 
     let speakers = detectSpeakersByPrefixes(text, roster);
 
-    // optional fallback to author if nothing detected
     if (!speakers.length && cfg.fallbackToAuthor) {
       const author =
         botMessage?.author?.name ||
@@ -142,12 +133,11 @@ export class Stage extends StageBase<any, any, any, Config> {
       if (c) speakers = [c];
     }
 
-    // cap portraits per turn
-    const limit = Math.max(1, cfg.maxPerTurn ?? 3);
+    const limit = Math.max(1, cfg.maxPerTurn ?? 4); // 2x2 grid target
     if (speakers.length > limit) speakers = speakers.slice(0, limit);
 
-    // ---- Balance detection (simple absolute parser) ----
-    let balanceC: number = (this as any).state?.balanceC ?? 0; // keep previous, default 0
+    // Balance parse
+    let balanceC: number = (this as any).state?.balanceC ?? 0;
     if (cfg.showBalance !== false) {
       try {
         const pattern = cfg.balanceRegex || "C\\s*([0-9][0-9,\\.]*)";
@@ -158,29 +148,27 @@ export class Stage extends StageBase<any, any, any, Config> {
           const num = Number(cleaned);
           if (!Number.isNaN(num)) balanceC = num;
         }
-      } catch {
-        /* ignore invalid regex */
-      }
+      } catch {}
     }
 
     await this.setState({ ...(this as any).state, lastSpeakers: speakers, balanceC });
     return {} as Partial<StageResponse<any, any>>;
   }
 
-  /** Right panel UI — responsive portraits with wrapping */
+  /** Right panel UI — 1 col for 1 speaker, 2×2 grid for 2–4 speakers */
   render() {
     const cfg: Config = (this as any).config || { characters: [] };
     if (cfg.showPanel === false) return <></>;
 
     const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
 
-    // Slider-controlled card width (min 120, max 1200). Coerce to number.
-    const CARD_W = Math.min(1200, Math.max(120, Number(cfg.portraitSize ?? 360)));
-
-    // Balance number: use state (default 0). Always show badge if showBalance !== false
     const currencyLabel = cfg.currencyLabel ?? "C";
     const showBalance = cfg.showBalance !== false;
     const cBalance = (this as any)?.state?.balanceC ?? 0;
+
+    // columns: 1 speaker => 1fr, otherwise 2 columns
+    const cols = speakers.length <= 1 ? 1 : 2;
+    const gridTemplateColumns = cols === 1 ? "1fr" : "1fr 1fr";
 
     return (
       <div style={{ padding: 12 }}>
@@ -233,23 +221,14 @@ export class Stage extends StageBase<any, any, any, Config> {
         {speakers.length ? (
           <div
             style={{
-              display: "flex",
-              flexWrap: "wrap",
+              display: "grid",
+              gridTemplateColumns,
               gap: 14,
+              alignItems: "start",
             }}
           >
             {speakers.map((c, i) => (
-              <div
-                key={i}
-                style={{
-                  // Make the slider actually control the card size in a flex row
-                  flex: `0 0 ${CARD_W}px`, // flex-basis = CARD_W
-                  width: `${CARD_W}px`,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                }}
-              >
+              <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div
                   style={{
                     width: "100%",
@@ -270,13 +249,11 @@ export class Stage extends StageBase<any, any, any, Config> {
                     style={{
                       display: "block",
                       width: "100%",
-                      height: "auto",     // keep aspect ratio
+                      height: "auto",     // keep aspect
                       objectFit: "contain",
                       background: "#0b0b0b",
                     }}
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = "none";
-                    }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                   />
                 </div>
 
