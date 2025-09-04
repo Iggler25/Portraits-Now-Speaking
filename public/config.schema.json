@@ -1,52 +1,26 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Portraits — Now Speaking",
   "type": "object",
+  "required": ["characters"],
   "properties": {
-    "showPanel": {
-      "type": "boolean",
-      "title": "Show panel",
-      "description": "Show the right-side portraits panel.",
-      "default": true
-    },
-    "maxPerTurn": {
-      "type": "integer",
-      "title": "Max portraits per turn",
-      "minimum": 1,
-      "maximum": 6,
-      "default": 3
-    },
-    "fallbackToAuthor": {
-      "type": "boolean",
-      "title": "Fallback to message author",
-      "description": "If no speaker names are detected, show the message author's portrait if they exist in the cast.",
-      "default": false
-    },
+    "showPanel": { "type": "boolean", "title": "Show the right-side panel", "default": true },
+    "maxPerTurn": { "type": "integer", "title": "Max portraits to show per bot message", "default": 3 },
+    "fallbackToAuthor": { "type": "boolean", "title": "If no speakers detected, show the bot author's portrait", "default": false },
     "characters": {
       "type": "array",
-      "title": "Character roster",
-      "description": "Override the default roster; leave empty to use defaults in code.",
+      "title": "Characters",
+      "minItems": 1,
+      "maxItems": 32,
       "items": {
         "type": "object",
         "required": ["name", "imageUrl"],
         "properties": {
-          "name": { "type": "string", "title": "Name" },
-          "aliases": {
-            "type": "array",
-            "title": "Aliases (optional)",
-            "items": { "type": "string" },
-            "default": []
-          },
-          "imageUrl": { "type": "string", "title": "Portrait URL (https)", "format": "uri" },
-          "traits": {
-            "type": "array",
-            "title": "Traits (optional)",
-            "items": { "type": "string" },
-            "default": []
-          }
+          "name": { "type": "string", "title": "Display name" },
+          "aliases": { "type": "array", "items": { "type": "string" }, "title": "Aliases" },
+          "imageUrl": { "type": "string", "format": "uri", "title": "Direct image URL (HTTPS)" },
+          "traits": { "type": "array", "items": { "type": "string" }, "title": "Traits (optional)" }
         }
-      },
-      "default": []
+      }
     }
   }
 }
