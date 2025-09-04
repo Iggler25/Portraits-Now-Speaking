@@ -30,13 +30,13 @@ const DEFAULT_CHARACTERS: Character[] = [
     { name: "Shadowheart", aliases: ["Shadow Heart"], imageUrl: "https://files.catbox.moe/f6salf.jpg" },
     { name: "Kaelen", aliases: ["Kael"], imageUrl: "https://files.catbox.moe/ce0c87.jpg" },
     { name: "Blair", aliases: [], imageUrl: "https://files.catbox.moe/wj9iyb.jpg" },
-    { name: "Maya", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_MAYA.png" },
-    { name: "Tracer", aliases: ["Lena", "Oxton", "Lena Oxton"], imageUrl: "https://files.catbox.moe/REPLACE_TRACER.png" },
-    { name: "Nyssia", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_NYSSIA.png" },
-    { name: "Morgana", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_MORGANA.png" },
-    { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_NAMI.png" },
-    { name: "Nico Robin", aliases: ["Nico", "Robin", "NicoRobin"], imageUrl: "https://files.catbox.moe/REPLACE_NICO_ROBIN.png" },
-    { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/REPLACE_MAKI_OZE.png" }
+    { name: "Maya", aliases: [], imageUrl: "https://files.catbox.moe/hzbyt4.jpg" },
+    { name: "Tracer", aliases: ["Lena", "Oxton", "Lena Oxton"], imageUrl: "https://files.catbox.moe/5nrczz.jpg" },
+    { name: "Nyssia", aliases: [], imageUrl: "https://files.catbox.moe/59ops5.jpg" },
+    { name: "Morgana", aliases: [], imageUrl: "https://files.catbox.moe/63ayl4.jpg" },
+    { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/g8v18s.jpgs" },
+    { name: "Nico Robin", aliases: ["Nico", "Robin", "NicoRobin"], imageUrl: "https://files.catbox.moe/sut7qk.jpg" },
+    { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/d3eitq.jpg" }
 ];
 
 /** =================== Helpers =================== */
