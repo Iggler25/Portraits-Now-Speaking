@@ -1,25 +1,54 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Portraits — Now Speaking",
   "type": "object",
   "required": ["characters"],
   "properties": {
-    "showPanel": { "type": "boolean", "title": "Show the right-side panel", "default": true },
-    "maxPerTurn": { "type": "integer", "title": "Max portraits to show per bot message", "default": 3 },
-    "fallbackToAuthor": { "type": "boolean", "title": "If no speakers detected, show the bot author's portrait", "default": false },
+    "showPanel": {
+      "type": "boolean",
+      "title": "Show the right-side panel",
+      "default": true
+    },
+    "maxPerTurn": {
+      "type": "integer",
+      "title": "Max portraits to show per bot message",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 12
+    },
+    "fallbackToAuthor": {
+      "type": "boolean",
+      "title": "If no speakers detected, show the bot author's portrait",
+      "default": false
+    },
 
+    /* -------- New toggles you asked for -------- */
+    "portraitSize": {
+      "type": "integer",
+      "title": "Portrait size (px)",
+      "description": "Base width for each portrait. In tight mode, items shrink together to fit.",
+      "default": 360,
+      "minimum": 120,
+      "maximum": 1024
+    },
+    "tightGrid": {
+      "type": "boolean",
+      "title": "Keep portraits on one row (auto-shrink)",
+      "description": "If off, portraits wrap to the next line instead of shrinking.",
+      "default": true
+    },
     "showBalance": {
       "type": "boolean",
-      "title": "Show C balance",
-      "default": true,
-      "description": "Toggle the Corruption Ether balance badge in the header."
+      "title": "Show currency balance",
+      "default": true
     },
-    "balanceRegex": {
+    "currencyLabel": {
       "type": "string",
-      "title": "Regex to extract C balance (first capture = number)",
-      "default": "C\\s*([0-9][0-9,\\.]*)",
-      "description": "Example matches: \"C 1,250\", \"C1250\", \"Balance: C 500\"."
+      "title": "Currency label",
+      "default": "C"
     },
 
+    /* -------- Characters list -------- */
     "characters": {
       "type": "array",
       "title": "Characters",
@@ -30,9 +59,21 @@
         "required": ["name", "imageUrl"],
         "properties": {
           "name": { "type": "string", "title": "Display name" },
-          "aliases": { "type": "array", "items": { "type": "string" }, "title": "Aliases" },
-          "imageUrl": { "type": "string", "format": "uri", "title": "Direct image URL (HTTPS)" },
-          "traits": { "type": "array", "items": { "type": "string" }, "title": "Traits (optional)" }
+          "aliases": {
+            "type": "array",
+            "title": "Aliases (optional)",
+            "items": { "type": "string" }
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri",
+            "title": "Direct image URL (HTTPS)"
+          },
+          "traits": {
+            "type": "array",
+            "title": "Traits (optional)",
+            "items": { "type": "string" }
+          }
         }
       }
     }
