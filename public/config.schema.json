@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Portraits — Now Speaking",
+  "type": "object",
+  "properties": {
+    "showPanel": {
+      "type": "boolean",
+      "title": "Show panel",
+      "description": "Show the right-side portraits panel.",
+      "default": true
+    },
+    "maxPerTurn": {
+      "type": "integer",
+      "title": "Max portraits per turn",
+      "minimum": 1,
+      "maximum": 6,
+      "default": 3
+    },
+    "fallbackToAuthor": {
+      "type": "boolean",
+      "title": "Fallback to message author",
+      "description": "If no speaker names are detected, show the message author's portrait if they exist in the cast.",
+      "default": false
+    },
+    "characters": {
+      "type": "array",
+      "title": "Character roster",
+      "description": "Override the default roster; leave empty to use code defaults.",
+      "items": {
+        "type": "object",
+        "required": ["name", "imageUrl"],
+        "properties": {
+          "name":   { "type": "string", "title": "Name" },
+          "aliases": {
+            "type": "array",
+            "title": "Aliases (optional)",
+            "items": { "type": "string" },
+            "default": []
+          },
+          "imageUrl": { "type": "string", "title": "Portrait URL (https)", "format": "uri" },
+          "traits": {
+            "type": "array",
+            "title": "Traits (optional)",
+            "items": { "type": "string" },
+            "default": []
+          }
+        }
+      },
+      "default": []
+    }
+  }
+}
