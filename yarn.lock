@@ -294,28 +294,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@chub-ai/stage-template@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "@chub-ai/stage-template@workspace:."
-  dependencies:
-    "@chub-ai/stages-ts": "npm:^0.3.7"
-    "@types/react": "npm:^18.2.66"
-    "@types/react-dom": "npm:^18.2.22"
-    "@typescript-eslint/parser": "npm:^7.4.0"
-    "@vitejs/plugin-basic-ssl": "npm:^2.1.0"
-    "@vitejs/plugin-react": "npm:^4.2.1"
-    eslint: "npm:^8.57.0"
-    eslint-plugin-react-hooks: "npm:^4.6.0"
-    eslint-plugin-react-refresh: "npm:^0.4.6"
-    react: "npm:^18.2.0"
-    react-dom: "npm:^18.2.0"
-    sass: "npm:^1.72.0"
-    typescript: "npm:^5.2.2"
-    vite: "npm:^5.2.0"
-    vite-plugin-dts: "npm:^3.9.1"
-  languageName: unknown
-  linkType: soft
-
 "@chub-ai/stages-ts@npm:^0.3.7":
   version: 0.3.7
   resolution: "@chub-ai/stages-ts@npm:0.3.7"
@@ -3338,6 +3316,28 @@ __metadata:
   checksum: 10c0/caddd5f544b2006e88fa6b0124d8d7b28208b83c72d7672d5ade44d794525d23b540f3396108c4eb9280dcb7c01f0bef50682f5b4b2c34291f7c5e211fd1417d
   languageName: node
   linkType: hard
+
+"stage-template@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "stage-template@workspace:."
+  dependencies:
+    "@chub-ai/stages-ts": "npm:^0.3.7"
+    "@types/react": "npm:^18.2.66"
+    "@types/react-dom": "npm:^18.2.22"
+    "@typescript-eslint/parser": "npm:^7.4.0"
+    "@vitejs/plugin-basic-ssl": "npm:^2.1.0"
+    "@vitejs/plugin-react": "npm:^4.2.1"
+    eslint: "npm:^8.57.0"
+    eslint-plugin-react-hooks: "npm:^4.6.0"
+    eslint-plugin-react-refresh: "npm:^0.4.6"
+    react: "npm:^18.2.0"
+    react-dom: "npm:^18.2.0"
+    sass: "npm:^1.72.0"
+    typescript: "npm:^5.2.2"
+    vite: "npm:^5.2.0"
+    vite-plugin-dts: "npm:^3.9.1"
+  languageName: unknown
+  linkType: soft
 
 "string-argv@npm:~0.3.1":
   version: 0.3.2
