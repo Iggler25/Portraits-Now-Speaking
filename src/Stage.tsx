@@ -174,8 +174,8 @@ export class Stage extends StageBase<any, any, any, Config> {
 
     const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
 
-    // Slider-controlled card width (min 120, max 1200 to be safe)
-    const CARD_W = Math.min(1200, Math.max(120, cfg.portraitSize ?? 360));
+    // Slider-controlled card width (min 120, max 1200). Coerce to number.
+    const CARD_W = Math.min(1200, Math.max(120, Number(cfg.portraitSize ?? 360)));
 
     // Balance number: use state (default 0). Always show badge if showBalance !== false
     const currencyLabel = cfg.currencyLabel ?? "C";
@@ -242,8 +242,9 @@ export class Stage extends StageBase<any, any, any, Config> {
               <div
                 key={i}
                 style={{
-                  width: `${CARD_W}px`,     // slider controls this
-                  maxWidth: "100%",         // don’t overflow panel
+                  // Make the slider actually control the card size in a flex row
+                  flex: `0 0 ${CARD_W}px`, // flex-basis = CARD_W
+                  width: `${CARD_W}px`,
                   display: "flex",
                   flexDirection: "column",
                   gap: 8,
