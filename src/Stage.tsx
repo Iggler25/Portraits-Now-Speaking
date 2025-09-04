@@ -176,92 +176,159 @@ export class Stage extends StageBase<any, any, any, Config> {
         return {} as Partial<StageResponse<any, any>>;
     }
 
-    /** Right panel UI — must return a ReactElement */
+    /** Right panel UI — responsive portraits */
     render() {
-        const cfg: Config = (this as any).config || { characters: [] };
+        const cfg: Config & {
+            portraitSize?: number;   // optional, from config
+            tightGrid?: boolean;     // optional, from config
+            showBalance?: boolean;   // optional, from config
+            currencyLabel?: string;  // optional, from config
+        } = (this as any).config || { characters: [] };
+
         const isHidden = cfg.showPanel === false;
         const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
-        const balanceC: number | null = (this as any).state?.balanceC ?? null;
-        const showBalance = cfg.showBalance !== false;
 
-        // Container (no magenta border)
+        // --- sizing knobs (you can override from config/cog) ---
+        // 2× bigger than before: try 360px; tweak to taste.
+        const PORTRAIT_PX = Math.max(120, cfg.portraitSize ?? 360);
+        // If true -> keep everyone on one row by sharing space; they will shrink.
+        // If false -> each item has a minimum width and will wrap to the next line.
+        const TIGHT = cfg.tightGrid ?? true;
+
+        // Try to find a number for “C” balance from a few likely places
+        const guessNumber = (v: any) =>
+            typeof v === "number" && isFinite(v) ? v :
+                (typeof v === "string" && /^\d+(\.\d+)?$/.test(v) ? Number(v) : undefined);
+
+        const cBalance =
+            guessNumber((this as any)?.bot?.balanceC) ??
+            guessNumber((this as any)?.bot?.coins) ??
+            guessNumber((this as any)?.character?.balanceC) ??
+            guessNumber((this as any)?.state?.balanceC);
+
+        const currencyLabel = cfg.currencyLabel ?? "C";
+
+        // grid definition:
+        // - TIGHT  : everyone shares one row (repeat(<n>, 1fr)) and auto-shrinks
+        // - RELAXED: auto-fit min columns; when too narrow, items wrap
+        const gridTemplateColumns = TIGHT
+            ? `repeat(${Math.max(1, speakers.length)}, 1fr)`
+            : `repeat(auto-fit, minmax(${Math.min(220, PORTRAIT_PX)}px, 1fr))`;
+
+        if (isHidden) return <></>;
+
         return (
-            <div style={{
-                minHeight: 120,
-                padding: 12,
-                borderRadius: 12
-            }}>
-                <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 8
-                }}>
-                    <div style={{ fontWeight: 800, fontSize: 18 }}>
-                        {isHidden ? "Portraits panel (hidden by config)" : "Now speaking"}
-                    </div>
+            <div
+                style={{
+                    padding: 12,
+                    // No magenta border anymore; keep it clean
+                    borderRadius: 10,
+                }}
+            >
+                {/* Header row with optional balance */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800 }}>Now speaking</div>
 
-                    {showBalance && balanceC != null && !isHidden && (
+                    {(cfg.showBalance ?? true) && cBalance !== undefined && (
                         <div
-                            title="Corruption Ether"
+                            title={`${currencyLabel} balance`}
                             style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 8,
                                 padding: "6px 10px",
                                 borderRadius: 999,
-                                border: "1px solid rgba(255,255,255,0.15)",
-                                background: "rgba(0,0,0,0.25)",
-                                backdropFilter: "blur(4px)",
+                                background: "rgba(255,255,255,0.06)",
+                                border: "1px solid rgba(255,255,255,0.08)",
                                 fontWeight: 700,
                                 fontSize: 14
                             }}
                         >
-                            C {balanceC.toLocaleString()}
+                            <span style={{
+                                display: "inline-flex",
+                                width: 22,
+                                height: 22,
+                                borderRadius: 999,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background: "linear-gradient(135deg,#ffd54a,#ff9f1a)",
+                                color: "#000",
+                                fontWeight: 900
+                            }}>
+                                {currencyLabel}
+                            </span>
+                            <span>{cBalance}</span>
                         </div>
                     )}
                 </div>
 
-                {!isHidden && (
-                    <>
-                        {speakers.length ? (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-                                {speakers.map((c, i) => (
-                                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                        {/* BIG, aspect-preserving image */}
-                                        <div style={{
-                                            borderRadius: 12,
-                                            overflow: "hidden",
-                                            border: "1px solid rgba(255,255,255,0.10)",
-                                            boxShadow: "0 6px 20px rgba(0,0,0,0.35)"
-                                        }}>
-                                            <img
-                                                src={c.imageUrl}
-                                                alt={c.name}
-                                                loading="lazy"
-                                                referrerPolicy="no-referrer"
-                                                style={{
-                                                    display: "block",
-                                                    width: "min(40vw, 560px)", // ~10× larger than 56px, responsive
-                                                    height: "auto",             // keep aspect ratio
-                                                    objectFit: "contain",
-                                                    background: "#111"
-                                                }}
-                                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                                            />
-                                        </div>
-                                        {/* Bigger name text */}
-                                        <div style={{ marginTop: 10, fontSize: 18, fontWeight: 700, textAlign: "center", maxWidth: 560 }}>
-                                            {c.name}
-                                        </div>
-                                    </div>
-                                ))}
+                {speakers.length ? (
+                    <div
+                        style={{
+                            display: "grid",
+                            gap: 14,
+                            gridTemplateColumns,
+                            alignItems: "start"
+                        }}
+                    >
+                        {speakers.map((c, i) => (
+                            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                <div
+                                    style={{
+                                        // Portrait box respects aspect ratio (no cropping)
+                                        width: "100%",
+                                        maxWidth: PORTRAIT_PX,
+                                        // Constrain the visual height a bit so 21:9 images don’t explode; tweak if you like
+                                        maxHeight: PORTRAIT_PX * 1.2,
+                                        background: "rgba(255,255,255,0.03)",
+                                        border: "1px solid rgba(255,255,255,0.06)",
+                                        borderRadius: 14,
+                                        overflow: "hidden",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                    }}
+                                >
+                                    <img
+                                        src={c.imageUrl}
+                                        alt={c.name}
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer"
+                                        style={{
+                                            width: "100%",
+                                            height: "auto",
+                                            objectFit: "contain",   // keep original aspect
+                                            display: "block",
+                                            background: "#0b0b0b"
+                                        }}
+                                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                    />
+                                </div>
+
+                                <div
+                                    style={{
+                                        fontSize: 18,          // Bigger, more “speaking” feel
+                                        fontWeight: 800,
+                                        lineHeight: 1.15,
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        maxWidth: PORTRAIT_PX
+                                    }}
+                                    title={c.name}
+                                >
+                                    {c.name}
+                                </div>
                             </div>
-                        ) : (
-                            <div style={{ fontSize: 18, opacity: 0.7 }}>
-                                No speakers detected. Dialogue lines must start with <code>Name:</code>.
-                            </div>
-                        )}
-                    </>
+                        ))}
+                    </div>
+                ) : (
+                    <div style={{ fontSize: 13, opacity: 0.7 }}>
+                        No speakers detected. Dialogue lines must start with <code>Name:</code>.
+                    </div>
                 )}
             </div>
         );
     }
+
 }

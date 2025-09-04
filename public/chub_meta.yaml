@@ -1,9 +1,9 @@
 name: "Portraits — Now Speaking for Lilith's Aethial"
 position: RIGHT
-'@config_schema.json:'
-  "$schema": "https://json-schema.org/draft/2020-12/schema"
-  type: object
-  properties:
+config_schema: '@config_schema.json'
+"$schema": "https://json-schema.org/draft/2020-12/schema"
+type: object
+properties:
     showPanel:
       type: boolean
       default: true
