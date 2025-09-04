@@ -36,3 +36,6 @@ config_schema:
             type: array
             title: "Traits (optional)"
             items: { type: string }
+
+github_path: 'https://github.com/Iggler25/Portraits-Now-Speaking'
+
