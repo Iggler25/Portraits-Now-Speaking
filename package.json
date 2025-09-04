@@ -1,4 +1,9 @@
 {
+  {
+  "name": "stage-template",
+  // …the rest of your fields…
+  "packageManager": "yarn@4.9.4"
+}
   "name": "@chub-ai/stage-template",
   "version": "0.0.0",
   "type": "module",
