@@ -25,12 +25,12 @@
     "characters": {
       "type": "array",
       "title": "Character roster",
-      "description": "Override the default roster; leave empty to use code defaults.",
+      "description": "Override the default roster; leave empty to use defaults in code.",
       "items": {
         "type": "object",
         "required": ["name", "imageUrl"],
         "properties": {
-          "name":   { "type": "string", "title": "Name" },
+          "name": { "type": "string", "title": "Name" },
           "aliases": {
             "type": "array",
             "title": "Aliases (optional)",
