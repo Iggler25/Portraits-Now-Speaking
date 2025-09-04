@@ -2,11 +2,8 @@ name: Deploy Built Stage
 
 on:
   push:
-    branches:
-      - main  # Or any branch you use for releases
-      - master
-    tags:
-      - 'v*'
+    branches: [ main, master ]
+    tags: [ 'v*' ]
 
 permissions:
   contents: write
@@ -16,20 +13,36 @@ jobs:
   build-and-upload:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      # Always use the latest checkout action
+      - uses: actions/checkout@v4
+
+      # 1) Set up Node 20 (NO yarn cache yet, so it won't call yarn)
       - name: Set up Node 20 LTS
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: yarn
+          node-version: '20'
+
+      # 2) Switch to Yarn 4.9.4 via Corepack BEFORE any yarn command runs
+      - name: Enable Corepack and Yarn 4.9.4
+        run: |
+          corepack enable
+          corepack prepare yarn@4.9.4 --activate
+          yarn -v  # should print 4.9.4
+
+      # 3) (Optional) now it's safe to enable yarn caching
+      - name: Enable yarn cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
 
       - name: Confirm CHUB_AUTH_TOKEN is set
         env:
           CHUB_AUTH_TOKEN: ${{ secrets.CHUB_AUTH_TOKEN }}
         run: |
           if [ "${{ secrets.CHUB_AUTH_TOKEN }}" == "" ] || [ "${{ secrets.CHUB_AUTH_TOKEN }}" == "null" ]; then
-             echo "Your CHUB_AUTH_TOKEN secret is not set for this project. Cannot proceed."
-             exit 1
+            echo "Your CHUB_AUTH_TOKEN secret is not set for this project. Cannot proceed."
+            exit 1
           fi
 
       - name: Get or Make Stage ID
@@ -38,8 +51,8 @@ jobs:
           CHUB_AUTH_TOKEN: ${{ secrets.CHUB_AUTH_TOKEN }}
           STAGE_ID: ${{ secrets.STAGE_ID }}
         run: |
-          mkdir -p public/       
-          touch public/chub_meta.yaml  
+          mkdir -p public/
+          touch public/chub_meta.yaml
           if grep -q "^github_path:" public/chub_meta.yaml; then
             echo "Repo path already in metadata file."
           else
@@ -55,41 +68,46 @@ jobs:
               git push
             fi
           fi
+
           if [ "${{ secrets.STAGE_ID }}" == "" ]; then
-             echo "Secret STAGE_ID does not exist; attempting to read from file"
-             STAGE_ID=$(grep '^extension_id:' public/chub_meta.yaml | cut -d ':' -f2 | tr -d " '\"")
-             if [ "${STAGE_ID}" == ""  ]; then
-                if ["${{ github.repository }}" == "CharHubAI/stage-template"]; then
-                  echo "Not making ext id for template project"
-                  STAGE_ID="extension-template-5523da8cf7de"
-                else
-                  echo "Extension ID not present in public/chub_meta.yaml extension_id field either. Creating new project."
-                  sudo apt-get install jq
-                  STAGE_ID=""
-                  curl -H "CH-API-KEY: ${{ secrets.CHUB_AUTH_TOKEN }}" -H "Content-Type: application/json" --request POST --data '{"name":"${{ github.event.repository.name }}"}'  https://api.chub.ai/extensions  -o creation.json
-                  STAGE_ID=$(jq -r '.id_v2' creation.json)
-                  if [ "${STAGE_ID}" == "" ] || [ "${STAGE_ID}" == "null" ]; then
-                    echo "Extension ID creation failed; is your CHUB_AUTH_TOKEN secret set for this project?"
-                    exit 1
-                  fi
-                  echo -e "\nextension_id: '${STAGE_ID}'\n" >> public/chub_meta.yaml
-                  git config --local user.email "action@github.com"
-                  git config --local user.name "GitHub Action"
-                  git add public/chub_meta.yaml
-                  git commit -m "Add new Extension ID to chub_meta.yaml" || true
-                  git push
+            echo "Secret STAGE_ID does not exist; attempting to read from file"
+            STAGE_ID=$(grep '^extension_id:' public/chub_meta.yaml | cut -d ':' -f2 | tr -d " '\"")
+            if [ "${STAGE_ID}" == ""  ]; then
+              if ["${{ github.repository }}" == "CharHubAI/stage-template"]; then
+                echo "Not making ext id for template project"
+                STAGE_ID="extension-template-5523da8cf7de"
+              else
+                echo "Extension ID not present; creating new project."
+                sudo apt-get install -y jq
+                curl -H "CH-API-KEY: ${{ secrets.CHUB_AUTH_TOKEN }}" \
+                     -H "Content-Type: application/json" \
+                     --request POST \
+                     --data '{"name":"${{ github.event.repository.name }}"}' \
+                     https://api.chub.ai/extensions -o creation.json
+                STAGE_ID=$(jq -r '.id_v2' creation.json)
+                if [ "${STAGE_ID}" == "" ] || [ "${STAGE_ID}" == "null" ]; then
+                  echo "Extension ID creation failed; is CHUB_AUTH_TOKEN set?"
+                  exit 1
                 fi
-             else
-                echo "Extension ID found in public/chub_meta.yaml."
-             fi
+                echo -e "\nextension_id: '${STAGE_ID}'\n" >> public/chub_meta.yaml
+                git config --local user.email "action@github.com"
+                git config --local user.name "GitHub Action"
+                git add public/chub_meta.yaml
+                git commit -m "Add new Extension ID to chub_meta.yaml" || true
+                git push
+              fi
+            else
+              echo "Extension ID found in public/chub_meta.yaml."
+            fi
           else
-             STAGE_ID=${{ secrets.STAGE_ID }}
+            STAGE_ID=${{ secrets.STAGE_ID }}
           fi
           echo "STAGE_ID=${STAGE_ID}" >> $GITHUB_ENV
+
       - name: Char UUIDGen
         if: ${{ !contains(github.repository, 'template') }}
         run: |
-          sudo apt-get install uuid-runtime
+          sudo apt-get install -y uuid-runtime
           for file in public/characters/*.yaml; do
             if grep -q 'project_uuid:' "$file"; then
               echo "project has uuid."
@@ -99,13 +117,14 @@ jobs:
               echo "Added project_uuid to $file"
               git config --local user.email "action@github.com"
               git config --local user.name "GitHub Action"
-              git add $file
+              git add "$file"
               git commit -m "Add project_uuid to YAML file"
               git push
             fi
           done
+
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --immutable
 
       - name: Build
         run: yarn build
@@ -117,13 +136,15 @@ jobs:
         if: ${{ !contains(github.repository, 'template') }}
         env:
           CHUB_AUTH_TOKEN: ${{ secrets.CHUB_AUTH_TOKEN }}
-        run: |    
-          curl -H "CH-API-KEY: ${{ secrets.CHUB_AUTH_TOKEN }}" -F "file=@build.zip" https://api.chub.ai/extension/${{ env.STAGE_ID }}/upload
+        run: |
+          curl -H "CH-API-KEY: ${{ secrets.CHUB_AUTH_TOKEN }}" \
+               -F "file=@build.zip" \
+               https://api.chub.ai/extension/${{ env.STAGE_ID }}/upload
 
       - name: Setup .npmrc
+        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
         run: |
           git config --global user.email "bot@chub.ai"
           git config --global user.name "Chub Bot"
@@ -133,10 +154,12 @@ jobs:
         id: get_version
         if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
         run: echo "::set-output name=VERSION::${GITHUB_REF#refs/tags/v}"
-        # Assumes tag is of form v1.0.0, strips the 'v'
 
       - name: Update package.json version
-        run: yarn build --mode lib && yarn version --new-version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version && yarn publish --access public
         if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          yarn build --mode lib
+          yarn version --new-version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
+          yarn publish --access public
