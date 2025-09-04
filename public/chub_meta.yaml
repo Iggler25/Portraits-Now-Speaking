@@ -39,3 +39,6 @@ config_schema:
 
 github_path: 'https://github.com/Iggler25/Portraits-Now-Speaking'
 
+
+extension_id: 'portraits-now-speaking-7a71760e8166'
+
