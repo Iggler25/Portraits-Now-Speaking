@@ -104,16 +104,17 @@ export class Stage extends StageBase<any, any, any, Config> {
     }
 
     /** Required by StageBase */
-    async load() {
-        return {
-            success: true,
-            ui: { visible: true },
-            state: {
-                lastSpeakers: [] as Character[],
-                balanceC: null as number | null
-            }
-        };
-    }
+  async load() {
+  return {
+    success: true,
+    ui: { visible: true },
+    state: {
+      lastSpeakers: [] as Character[],
+      balanceC: 0 as number,   // start at 0 so we can always show the badge
+    },
+  };
+}
+
 
     /** Required by StageBase */
     async setState(state: any) {
@@ -127,62 +128,53 @@ export class Stage extends StageBase<any, any, any, Config> {
 
     /** Runs after the assistant replies — detect & store speakers, and parse balance */
     async afterResponse(botMessage: any): Promise<Partial<StageResponse<any, any>>> {
-        const cfg: Config = (this as any).config || { characters: [] };
-        const roster =
-            cfg.characters && cfg.characters.length ? cfg.characters : DEFAULT_CHARACTERS;
+  const cfg: Config = (this as any).config || { characters: [] };
+  const roster = cfg.characters && cfg.characters.length ? cfg.characters : DEFAULT_CHARACTERS;
 
-        // ignore user messages
-        const role = (botMessage?.role || botMessage?.author?.role || "").toLowerCase();
-        if (role === "user") return {} as Partial<StageResponse<any, any>>;
+  // ignore user messages
+  const role = (botMessage?.role || botMessage?.author?.role || "").toLowerCase();
+  if (role === "user") return {} as Partial<StageResponse<any, any>>;
 
-        const text: string =
-            botMessage?.text ??
-            botMessage?.content ??
-            botMessage?.body ??
-            "";
+  const text: string = botMessage?.text ?? botMessage?.content ?? botMessage?.body ?? "";
 
-        let speakers = detectSpeakersByPrefixes(text, roster);
+  let speakers = detectSpeakersByPrefixes(text, roster);
 
-        // optional fallback to author if nothing detected
-        if (!speakers.length && cfg.fallbackToAuthor) {
-            const author =
-                botMessage?.author?.name ||
-                botMessage?.character?.name ||
-                (this as any)?.bot?.name ||
-                "";
-            const c = buildTokenMap(roster).get(normalize(author));
-            if (c) speakers = [c];
-        }
+  // optional fallback to author if nothing detected
+  if (!speakers.length && cfg.fallbackToAuthor) {
+    const author =
+      botMessage?.author?.name ||
+      botMessage?.character?.name ||
+      (this as any)?.bot?.name ||
+      "";
+    const c = buildTokenMap(roster).get(normalize(author));
+    if (c) speakers = [c];
+  }
 
-        // cap portraits per turn
-        const limit = Math.max(1, cfg.maxPerTurn ?? 3);
-        if (speakers.length > limit) speakers = speakers.slice(0, limit);
+  // cap portraits per turn
+  const limit = Math.max(1, cfg.maxPerTurn ?? 3);
+  if (speakers.length > limit) speakers = speakers.slice(0, limit);
 
-        // ---- Balance detection (simple absolute parser) ----
-        const showBalance = cfg.showBalance !== false; // default true
-        let balanceC = (this as any).state?.balanceC ?? null;
-        if (showBalance) {
-            try {
-                const pattern = cfg.balanceRegex || "C\\s*([0-9][0-9,\\.]*)";
-                const re = new RegExp(pattern, "i");
-                const m = re.exec(text);
-                if (m && m[1]) {
-                    const cleaned = String(m[1]).replace(/[,\s]/g, "");
-                    const num = Number(cleaned);
-                    if (!Number.isNaN(num)) balanceC = num;
-                }
-            } catch {
-                // ignore invalid regex
-            }
-        }
-
-        // persist state; host reads what we set
-        const nextState = { ...(this as any).state, lastSpeakers: speakers, balanceC };
-        await this.setState(nextState);
-
-        // typed empty StageResponse
-        return {} as Partial<StageResponse<any, any>>;
+  // ---- Balance detection (optional) ----
+  let balanceC: number = (this as any).state?.balanceC ?? 0;  // keep previous, default 0
+  if (cfg.showBalance !== false) {
+    try {
+      const pattern = cfg.balanceRegex || "C\\s*([0-9][0-9,\\.]*)";
+      const re = new RegExp(pattern, "i");
+      const m = re.exec(text);
+      if (m && m[1]) {
+        const cleaned = String(m[1]).replace(/[,\s]/g, "");
+        const num = Number(cleaned);
+        if (!Number.isNaN(num)) balanceC = num;
+      }
+    } catch {
+      /* ignore invalid regex */
     }
+  }
+
+  await this.setState({ ...(this as any).state, lastSpeakers: speakers, balanceC });
+  return {} as Partial<StageResponse<any, any>>;
+}
+
 
     /** Right panel UI — responsive portraits */
     render() {
