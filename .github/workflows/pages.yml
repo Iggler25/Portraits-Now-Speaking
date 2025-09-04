@@ -25,13 +25,12 @@ jobs:
           node-version: 22
           cache: yarn
 
-      # >>> make Corepack manage Yarn and pin Yarn 4.9.4 <<<
-      - name: Enable Corepack & use Yarn 4.9.4
-        shell: bash
+      # --- IMPORTANT: switch the runner to Yarn 4 ---
+      - name: Enable Corepack & activate Yarn 4.9.4
         run: |
           corepack enable
           corepack prepare yarn@4.9.4 --activate
-          yarn -v    # should print 4.9.4
+          yarn -v  # should print 4.9.4
 
       - name: Install deps
         run: yarn install --immutable
