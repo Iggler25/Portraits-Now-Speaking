@@ -3,6 +3,11 @@
   "type": "object",
   "required": ["characters"],
   "properties": {
+    "showPanel": {
+      "type": "boolean",
+      "title": "Show the right-side panel",
+      "default": true
+    },
     "maxPerTurn": {
       "type": "integer",
       "title": "Max portraits to show per bot message",
@@ -10,17 +15,23 @@
       "minimum": 1,
       "maximum": 12
     },
+    "fallbackToAuthor": {
+      "type": "boolean",
+      "title": "Fallback to bot author if none detected",
+      "default": false
+    },
     "portraitSize": {
       "type": "integer",
-      "title": "Portrait size (px): Base width for each portrait.",
-      "description": "Used when wrapping is allowed. In single-row mode items will auto-shrink to fit, capped by this width.",
+      "title": "Portrait size (px)",
+      "description": "Base width for each portrait",
       "default": 560,
       "minimum": 120,
-      "maximum": 1600
+      "maximum": 1024
     },
-    "keepOnOneRow": {
+    "tightGrid": {
       "type": "boolean",
       "title": "Keep portraits on one row (auto-shrink)",
+      "description": "If off, portraits wrap instead of shrinking",
       "default": true
     },
     "showBalance": {
@@ -28,15 +39,10 @@
       "title": "Show currency balance",
       "default": true
     },
-    "balanceLabel": {
+    "currencyLabel": {
       "type": "string",
       "title": "Currency label",
       "default": "C"
-    },
-    "fallbackToAuthor": {
-      "type": "boolean",
-      "title": "If no speakers detected, show the bot author's portrait",
-      "default": false
     },
     "characters": {
       "type": "array",
@@ -50,11 +56,15 @@
           "name": { "type": "string", "title": "Display name" },
           "aliases": {
             "type": "array",
-            "title": "Aliases that might appear before the colon (e.g., 'Nico')",
+            "title": "Aliases (optional)",
             "items": { "type": "string" }
           },
           "imageUrl": { "type": "string", "format": "uri", "title": "Direct image URL (HTTPS)" },
-          "traits": { "type": "array", "items": { "type": "string" }, "title": "Traits (optional)" }
+          "traits": {
+            "type": "array",
+            "title": "Traits (optional)",
+            "items": { "type": "string" }
+          }
         }
       }
     }
