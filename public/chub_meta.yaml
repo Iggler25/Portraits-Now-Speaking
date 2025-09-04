@@ -1,13 +1,11 @@
-name: Portraits now speaking for Lilith's Aethial'
+name: "Portraits — Now Speaking for Lilith's Aethial"
 position: RIGHT
-
 config_schema:
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
   type: object
-  required: [characters]
   properties:
     showPanel:
       type: boolean
-      title: "Show the right-side panel"
       default: true
     maxPerTurn:
       type: integer
@@ -37,7 +35,7 @@ config_schema:
             title: "Traits (optional)"
             items: { type: string }
 
-github_path: 'https://github.com/Iggler25/Portraits-Now-Speaking'
+github_path: 'https://github.com/Iggler25/Portraits-Now-Speaking-Liliths_Aethiel'
 
 
 extension_id: 'portraits-now-speaking-7a71760e8166'
