@@ -17,10 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Node
-        uses: actions/setup-node@v2
+      - name: Set up Node 20 LTS
+        uses: actions/setup-node@v4
         with:
-          node-version: '21.7.1'
+          node-version: 20
+          cache: yarn
 
       - name: Confirm CHUB_AUTH_TOKEN is set
         env:
