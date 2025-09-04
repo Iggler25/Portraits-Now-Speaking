@@ -16,9 +16,18 @@ type Config = {
     fallbackToAuthor?: boolean;
     characters: Character[];
 
-    // NEW (optional) – you can expose these in config.schema.json later
-    showBalance?: boolean;              // default true
-    balanceRegex?: string;              // default: "C\\s*([0-9][0-9,\\.]*)"
+    // UI/behavior config (support both your keys and older aliases)
+    portraitSize?: number;     // your schema
+    tightGrid?: boolean;       // your schema (keep one row if true)
+    showBalance?: boolean;     // your schema
+    currencyLabel?: string;    // your schema
+
+    // aliases accepted as well
+    keepOnOneRow?: boolean;    // alias of tightGrid
+    balanceLabel?: string;     // alias of currencyLabel
+
+    // optional regex to parse absolute "C 1234" values from bot text
+    balanceRegex?: string;     // default: "C\\s*([0-9][0-9,\\.]*)"
 };
 
 /** =================== Roster (put your real URLs) =================== */
@@ -34,7 +43,7 @@ const DEFAULT_CHARACTERS: Character[] = [
     { name: "Tracer", aliases: ["Lena", "Oxton", "Lena Oxton"], imageUrl: "https://files.catbox.moe/5nrczz.jpg" },
     { name: "Nyssia", aliases: [], imageUrl: "https://files.catbox.moe/59ops5.jpg" },
     { name: "Morgana", aliases: [], imageUrl: "https://files.catbox.moe/63ayl4.jpg" },
-    { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/g8v18s.jpgs" },
+    { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/g8v18s.jpg" }, // fixed .jpg
     { name: "Nico Robin", aliases: ["Nico", "Robin", "NicoRobin"], imageUrl: "https://files.catbox.moe/sut7qk.jpg" },
     { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/d3eitq.jpg" }
 ];
@@ -69,9 +78,9 @@ const detectSpeakersByPrefixes = (text: string, roster: Character[]): Character[
 
     for (let ln of normalized.split(/\r?\n/)) {
         // strip leading markdown bullets/quotes/spacing
-        ln = ln.replace(/^\s*(?:>|\*|-|\d+\.)\s*/, "");          // >, *, -, "1." at start
-        ln = ln.replace(/^\s*(\*\*|__|\*)/, "");                 // opening bold/italic
-        ln = ln.replace(/(\*\*|__|\*)\s*$/, "");                 // trailing bold/italic
+        ln = ln.replace(/^\s*(?:>|\*|-|\d+\.)\s*/, "");
+        ln = ln.replace(/^\s*(\*\*|__|\*)/, "");
+        ln = ln.replace(/(\*\*|__|\*)\s*$/, "");
 
         // Match: Name:  or  Name -   (allow quotes or nothing after punctuation)
         const m = ln.match(/^\s*([A-Za-z][\w .'\-]{0,40})\s*[:\-]\s*(?:.+)?$/);
@@ -158,7 +167,6 @@ export class Stage extends StageBase<any, any, any, Config> {
                 const re = new RegExp(pattern, "i");
                 const m = re.exec(text);
                 if (m && m[1]) {
-                    // strip commas/spaces, keep dot as decimal separator
                     const cleaned = String(m[1]).replace(/[,\s]/g, "");
                     const num = Number(cleaned);
                     if (!Number.isNaN(num)) balanceC = num;
@@ -178,27 +186,20 @@ export class Stage extends StageBase<any, any, any, Config> {
 
     /** Right panel UI — responsive portraits */
     render() {
-        const cfg: Config & {
-            portraitSize?: number;   // optional, from config
-            tightGrid?: boolean;     // optional, from config
-            showBalance?: boolean;   // optional, from config
-            currencyLabel?: string;  // optional, from config
-        } = (this as any).config || { characters: [] };
-
+        const cfg: Config = (this as any).config || { characters: [] };
         const isHidden = cfg.showPanel === false;
         const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
 
-        // --- sizing knobs (you can override from config/cog) ---
-        // 2× bigger than before: try 360px; tweak to taste.
+        // ---- config with aliases handled ----
         const PORTRAIT_PX = Math.max(120, cfg.portraitSize ?? 360);
-        // If true -> keep everyone on one row by sharing space; they will shrink.
-        // If false -> each item has a minimum width and will wrap to the next line.
-        const TIGHT = cfg.tightGrid ?? true;
+        const singleRow = (cfg.keepOnOneRow ?? cfg.tightGrid ?? true);
+        const currencyLabel = (cfg.balanceLabel ?? cfg.currencyLabel ?? "C");
 
         // Try to find a number for “C” balance from a few likely places
         const guessNumber = (v: any) =>
-            typeof v === "number" && isFinite(v) ? v :
-                (typeof v === "string" && /^\d+(\.\d+)?$/.test(v) ? Number(v) : undefined);
+            typeof v === "number" && isFinite(v)
+                ? v
+                : (typeof v === "string" && /^\d+(\.\d+)?$/.test(v) ? Number(v) : undefined);
 
         const cBalance =
             guessNumber((this as any)?.bot?.balanceC) ??
@@ -206,27 +207,24 @@ export class Stage extends StageBase<any, any, any, Config> {
             guessNumber((this as any)?.character?.balanceC) ??
             guessNumber((this as any)?.state?.balanceC);
 
-        const currencyLabel = cfg.currencyLabel ?? "C";
-
         // grid definition:
-        // - TIGHT  : everyone shares one row (repeat(<n>, 1fr)) and auto-shrinks
-        // - RELAXED: auto-fit min columns; when too narrow, items wrap
-        const gridTemplateColumns = TIGHT
+        const gridTemplateColumns = singleRow
             ? `repeat(${Math.max(1, speakers.length)}, 1fr)`
             : `repeat(auto-fit, minmax(${Math.min(220, PORTRAIT_PX)}px, 1fr))`;
 
         if (isHidden) return <></>;
 
         return (
-            <div
-                style={{
-                    padding: 12,
-                    // No magenta border anymore; keep it clean
-                    borderRadius: 10,
-                }}
-            >
+            <div style={{ padding: 12, borderRadius: 10 }}>
                 {/* Header row with optional balance */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 12
+                    }}
+                >
                     <div style={{ fontSize: 18, fontWeight: 800 }}>Now speaking</div>
 
                     {(cfg.showBalance ?? true) && cBalance !== undefined && (
@@ -244,17 +242,19 @@ export class Stage extends StageBase<any, any, any, Config> {
                                 fontSize: 14
                             }}
                         >
-                            <span style={{
-                                display: "inline-flex",
-                                width: 22,
-                                height: 22,
-                                borderRadius: 999,
-                                alignItems: "center",
-                                justifyContent: "center",
-                                background: "linear-gradient(135deg,#ffd54a,#ff9f1a)",
-                                color: "#000",
-                                fontWeight: 900
-                            }}>
+                            <span
+                                style={{
+                                    display: "inline-flex",
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: 999,
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    background: "linear-gradient(135deg,#ffd54a,#ff9f1a)",
+                                    color: "#000",
+                                    fontWeight: 900
+                                }}
+                            >
                                 {currencyLabel}
                             </span>
                             <span>{cBalance}</span>
@@ -275,10 +275,8 @@ export class Stage extends StageBase<any, any, any, Config> {
                             <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                 <div
                                     style={{
-                                        // Portrait box respects aspect ratio (no cropping)
                                         width: "100%",
                                         maxWidth: PORTRAIT_PX,
-                                        // Constrain the visual height a bit so 21:9 images don’t explode; tweak if you like
                                         maxHeight: PORTRAIT_PX * 1.2,
                                         background: "rgba(255,255,255,0.03)",
                                         border: "1px solid rgba(255,255,255,0.06)",
@@ -286,7 +284,7 @@ export class Stage extends StageBase<any, any, any, Config> {
                                         overflow: "hidden",
                                         display: "flex",
                                         alignItems: "center",
-                                        justifyContent: "center",
+                                        justifyContent: "center"
                                     }}
                                 >
                                     <img
@@ -297,17 +295,19 @@ export class Stage extends StageBase<any, any, any, Config> {
                                         style={{
                                             width: "100%",
                                             height: "auto",
-                                            objectFit: "contain",   // keep original aspect
+                                            objectFit: "contain", // keep original aspect
                                             display: "block",
                                             background: "#0b0b0b"
                                         }}
-                                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                        onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                                        }}
                                     />
                                 </div>
 
                                 <div
                                     style={{
-                                        fontSize: 18,          // Bigger, more “speaking” feel
+                                        fontSize: 18,
                                         fontWeight: 800,
                                         lineHeight: 1.15,
                                         textOverflow: "ellipsis",
@@ -330,5 +330,4 @@ export class Stage extends StageBase<any, any, any, Config> {
             </div>
         );
     }
-
 }
