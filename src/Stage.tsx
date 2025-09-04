@@ -20,12 +20,12 @@ type Config = {
 /** =================== Roster (put your real URLs) =================== */
 const DEFAULT_CHARACTERS: Character[] = [
     { name: "Lilith", aliases: ["Lady Lilith"], imageUrl: "https://files.catbox.moe/hpcqr0.jpg" },
-    { name: "Ankha", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_ANKHA.png" },
-    { name: "Widowmaker", aliases: ["Amelie", "Amélie", "Lacroix"], imageUrl: "https://files.catbox.moe/REPLACE_WIDOWMAKER.png" },
-    { name: "Rebecca", aliases: ["Becca"], imageUrl: "https://files.catbox.moe/REPLACE_REBECCA.png" },
-    { name: "Shadowheart", aliases: ["Shadow Heart"], imageUrl: "https://files.catbox.moe/REPLACE_SHADOWHEART.png" },
-    { name: "Kaelen", aliases: ["Kael"], imageUrl: "https://files.catbox.moe/REPLACE_KAELEN.png" },
-    { name: "Blair", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_BLAIR.png" },
+    { name: "Ankha", aliases: [], imageUrl: "https://files.catbox.moe/akibog.jpg" },
+    { name: "Widowmaker", aliases: ["Amelie", "Amélie", "Lacroix"], imageUrl: "https://files.catbox.moe/bzfzsg.jpg" },
+    { name: "Rebecca", aliases: ["Becca"], imageUrl: "https://files.catbox.moe/qo4sg2.jpg" },
+    { name: "Shadowheart", aliases: ["Shadow Heart"], imageUrl: "https://files.catbox.moe/f6salf.jpg" },
+    { name: "Kaelen", aliases: ["Kael"], imageUrl: "https://files.catbox.moe/ce0c87.jpg" },
+    { name: "Blair", aliases: [], imageUrl: "https://files.catbox.moe/wj9iyb.jpg" },
     { name: "Maya", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_MAYA.png" },
     { name: "Tracer", aliases: ["Lena", "Oxton", "Lena Oxton"], imageUrl: "https://files.catbox.moe/REPLACE_TRACER.png" },
     { name: "Nyssia", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_NYSSIA.png" },
@@ -58,10 +58,21 @@ const detectSpeakersByPrefixes = (text: string, roster: Character[]): Character[
     const hits: Character[] = [];
     const seen = new Set<string>();
 
-    for (const ln of text.split(/\r?\n/)) {
-        // Accept "Name:" or "Name -" (also full-width colon)
-        const m = ln.match(/^\s*([A-Za-z][\w .'-]{0,40})\s*[:：-]\s+/);
+    // Normalize smart punctuation + strip common markdown wrappers
+    const normalized = text
+        .replace(/\u2013|\u2014/g, "-")     // en/em dashes -> hyphen
+        .replace(/\uFF1A/g, ":");           // full-width colon -> colon
+
+    for (let ln of normalized.split(/\r?\n/)) {
+        // strip leading markdown bullets/quotes/spacing
+        ln = ln.replace(/^\s*(?:>|\*|-|\d+\.)\s*/, "");   // >, *, -, "1." at start
+        ln = ln.replace(/^\s*(\*\*|__|\*)/, "");          // opening bold/italic
+        ln = ln.replace(/(\*\*|__|\*)\s*$/, "");          // trailing bold/italic
+
+        // Match: Name:  or  Name -   (allow quotes or nothing after punctuation)
+        const m = ln.match(/^\s*([A-Za-z][\w .'\-]{0,40})\s*[:\-]\s*(?:.+)?$/);
         if (!m) continue;
+
         const key = normalize(m[1]);
         const c = tokenMap.get(key);
         if (c && !seen.has(c.name)) {
@@ -69,6 +80,7 @@ const detectSpeakersByPrefixes = (text: string, roster: Character[]): Character[
             seen.add(c.name);
         }
     }
+
     return hits;
 };
 
@@ -107,7 +119,11 @@ export class Stage extends StageBase<any, any, any, Config> {
         const role = (botMessage?.role || botMessage?.author?.role || "").toLowerCase();
         if (role === "user") return {} as Partial<StageResponse<any, any>>;
 
-        const text: string = botMessage?.text || "";
+        const text: string =
+            botMessage?.text ??
+            botMessage?.content ??
+            botMessage?.body ??
+            "";
         let speakers = detectSpeakersByPrefixes(text, roster);
 
         // optional fallback to author if nothing detected
