@@ -150,28 +150,49 @@ export class Stage extends StageBase<any, any, any, Config> {
     }
 
     /** Right panel UI — must return a ReactElement */
+    /** Right panel UI — simple debug panel so we can see it mounted */
     render() {
         const cfg: Config = (this as any).config || { characters: [] };
-        if (cfg.showPanel === false) return <></>; // hidden but valid element
-
+        const isHidden = cfg.showPanel === false;
         const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
 
+        // debug log so we can see what the panel received
+        try { console.log("[Portraits] render", { speakers: speakers.map(s => s.name), cfg }); } catch { }
+
         return (
-            <div className="p-3 overflow-auto h-full">
-                <h3 className="text-lg font-bold mb-2">Now speaking</h3>
-                {speakers.length ? (
-                    <div className="flex flex-wrap gap-3">
-                        {speakers.map((c, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                                <img src={c.imageUrl} alt={c.name} className="w-14 h-14 rounded-xl object-cover" />
-                                <div className="text-sm font-medium max-w-[12rem] truncate">{c.name}</div>
+            <div style={{ minHeight: 120, padding: 12, border: "2px dashed magenta", borderRadius: 10 }}>
+                <div style={{ fontWeight: 800, marginBottom: 6 }}>
+                    Portraits panel loaded {isHidden ? "(hidden by config)" : ""}
+                </div>
+
+                {!isHidden && (
+                    <>
+                        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Now speaking</div>
+
+                        {speakers.length ? (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                                {speakers.map((c, i) => (
+                                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <img
+                                            src={c.imageUrl}
+                                            alt={c.name}
+                                            loading="lazy"
+                                            referrerPolicy="no-referrer"
+                                            style={{ width: 56, height: 56, borderRadius: 12, objectFit: "cover", background: "#111" }}
+                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                        />
+                                        <div style={{ fontSize: 13, fontWeight: 600, maxWidth: 180, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                            {c.name}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-sm opacity-70">
-                        No speakers detected. Dialogue lines must start with <code>Name:</code>.
-                    </div>
+                        ) : (
+                            <div style={{ fontSize: 13, opacity: 0.7 }}>
+                                No speakers detected. Dialogue lines must start with <code>Name:</code>.
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         );
