@@ -1,312 +1,306 @@
-﻿import React from "react";
+import React from "react";
 import { StageBase, type InitialData } from "@chub-ai/stages-ts";
 import type { StageResponse } from "@chub-ai/stages-ts/dist/types/stage";
 
 /** =================== Types =================== */
 type Character = {
-    name: string;
-    aliases?: string[];
-    imageUrl: string;
-    traits?: string[];
+  name: string;
+  aliases?: string[];
+  imageUrl: string;
+  traits?: string[];
 };
 
 type Config = {
-    showPanel?: boolean;
-    maxPerTurn?: number;
-    fallbackToAuthor?: boolean;
-    characters: Character[];
+  showPanel?: boolean;
+  maxPerTurn?: number;
+  fallbackToAuthor?: boolean;
+  characters: Character[];
 
-    // UI/behavior config (support both your keys and older aliases)
-    portraitSize?: number;     // your schema
-    tightGrid?: boolean;       // your schema (keep one row if true)
-    showBalance?: boolean;     // your schema
-    currencyLabel?: string;    // your schema
-
-    // aliases accepted as well
-    keepOnOneRow?: boolean;    // alias of tightGrid
-    balanceLabel?: string;     // alias of currencyLabel
-
-    // optional regex to parse absolute "C 1234" values from bot text
-    balanceRegex?: string;     // default: "C\\s*([0-9][0-9,\\.]*)"
+  // optional UI knobs (read from config schema)
+  portraitSize?: number;       // base width per portrait (px)
+  currencyLabel?: string;      // e.g., "C"
+  showBalance?: boolean;       // default true
+  balanceRegex?: string;       // regex to read a number, defaults to C\s*(\d…)
 };
 
 /** =================== Roster (put your real URLs) =================== */
 const DEFAULT_CHARACTERS: Character[] = [
-    { name: "Lilith", aliases: ["Lady Lilith"], imageUrl: "https://files.catbox.moe/hpcqr0.jpg" },
-    { name: "Ankha", aliases: [], imageUrl: "https://files.catbox.moe/akibog.jpg" },
-    { name: "Widowmaker", aliases: ["Amelie", "Amélie", "Lacroix"], imageUrl: "https://files.catbox.moe/bzfzsg.jpg" },
-    { name: "Rebecca", aliases: ["Becca"], imageUrl: "https://files.catbox.moe/qo4sg2.jpg" },
-    { name: "Shadowheart", aliases: ["Shadow Heart"], imageUrl: "https://files.catbox.moe/f6salf.jpg" },
-    { name: "Kaelen", aliases: ["Kael"], imageUrl: "https://files.catbox.moe/ce0c87.jpg" },
-    { name: "Blair", aliases: [], imageUrl: "https://files.catbox.moe/wj9iyb.jpg" },
-    { name: "Maya", aliases: [], imageUrl: "https://files.catbox.moe/hzbyt4.jpg" },
-    { name: "Tracer", aliases: ["Lena", "Oxton", "Lena Oxton"], imageUrl: "https://files.catbox.moe/5nrczz.jpg" },
-    { name: "Nyssia", aliases: [], imageUrl: "https://files.catbox.moe/59ops5.jpg" },
-    { name: "Morgana", aliases: [], imageUrl: "https://files.catbox.moe/63ayl4.jpg" },
-    { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/g8v18s.jpg" }, // fixed .jpg
-    { name: "Nico Robin", aliases: ["Nico", "Robin", "NicoRobin"], imageUrl: "https://files.catbox.moe/sut7qk.jpg" },
-    { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/d3eitq.jpg" }
+  { name: "Lilith", aliases: ["Lady Lilith"], imageUrl: "https://files.catbox.moe/hpcqr0.jpg" },
+  { name: "Ankha", aliases: [], imageUrl: "https://files.catbox.moe/akibog.jpg" },
+  { name: "Widowmaker", aliases: ["Amelie", "Amélie", "Lacroix"], imageUrl: "https://files.catbox.moe/bzfzsg.jpg" },
+  { name: "Rebecca", aliases: ["Becca"], imageUrl: "https://files.catbox.moe/qo4sg2.jpg" },
+  { name: "Shadowheart", aliases: ["Shadow Heart"], imageUrl: "https://files.catbox.moe/f6salf.jpg" },
+  { name: "Kaelen", aliases: ["Kael"], imageUrl: "https://files.catbox.moe/ce0c87.jpg" },
+  { name: "Blair", aliases: [], imageUrl: "https://files.catbox.moe/wj9iyb.jpg" },
+  { name: "Maya", aliases: [], imageUrl: "https://files.catbox.moe/hzbyt4.jpg" },
+  { name: "Tracer", aliases: ["Lena", "Oxton", "Lena Oxton"], imageUrl: "https://files.catbox.moe/5nrczz.jpg" },
+  { name: "Nyssia", aliases: [], imageUrl: "https://files.catbox.moe/59ops5.jpg" },
+  { name: "Morgana", aliases: [], imageUrl: "https://files.catbox.moe/63ayl4.jpg" },
+  { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/g8v18s.jpg" }, // fixed .jpg
+  { name: "Nico Robin", aliases: ["Nico", "Robin", "NicoRobin"], imageUrl: "https://files.catbox.moe/sut7qk.jpg" },
+  { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/d3eitq.jpg" }
 ];
 
 /** =================== Helpers =================== */
 const normalize = (s: string) =>
-    (s || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]/g, "");
+  (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
 
 const buildTokenMap = (roster: Character[]) => {
-    const map = new Map<string, Character>();
-    for (const c of roster || []) {
-        const tokens = [c.name, ...(c.aliases || [])].filter(Boolean) as string[];
-        for (const t of tokens) map.set(normalize(t), c);
-    }
-    return map;
+  const map = new Map<string, Character>();
+  for (const c of roster || []) {
+    const tokens = [c.name, ...(c.aliases || [])].filter(Boolean) as string[];
+    for (const t of tokens) map.set(normalize(t), c);
+  }
+  return map;
 };
 
 const detectSpeakersByPrefixes = (text: string, roster: Character[]): Character[] => {
-    if (!text) return [];
-    const tokenMap = buildTokenMap(roster);
-    const hits: Character[] = [];
-    const seen = new Set<string>();
+  if (!text) return [];
+  const tokenMap = buildTokenMap(roster);
+  const hits: Character[] = [];
+  const seen = new Set<string>();
 
-    // Normalize smart punctuation + strip common markdown wrappers
-    const normalized = text
-        .replace(/\u2013|\u2014/g, "-")  // en/em dashes -> hyphen
-        .replace(/\uFF1A/g, ":");        // full-width colon -> colon
+  // Normalize smart punctuation + strip common markdown wrappers
+  const normalized = text
+    .replace(/\u2013|\u2014/g, "-")  // en/em dashes -> hyphen
+    .replace(/\uFF1A/g, ":");        // full-width colon -> colon
 
-    for (let ln of normalized.split(/\r?\n/)) {
-        // strip leading markdown bullets/quotes/spacing
-        ln = ln.replace(/^\s*(?:>|\*|-|\d+\.)\s*/, "");
-        ln = ln.replace(/^\s*(\*\*|__|\*)/, "");
-        ln = ln.replace(/(\*\*|__|\*)\s*$/, "");
+  for (let ln of normalized.split(/\r?\n/)) {
+    // strip leading markdown bullets/quotes/spacing
+    ln = ln.replace(/^\s*(?:>|\*|-|\d+\.)\s*/, "");          // >, *, -, "1." at start
+    ln = ln.replace(/^\s*(\*\*|__|\*)/, "");                 // opening bold/italic
+    ln = ln.replace(/(\*\*|__|\*)\s*$/, "");                 // trailing bold/italic
 
-        // Match: Name:  or  Name -   (allow quotes or nothing after punctuation)
-        const m = ln.match(/^\s*([A-Za-z][\w .'\-]{0,40})\s*[:\-]\s*(?:.+)?$/);
-        if (!m) continue;
+    // Match: Name:  or  Name -   (allow quotes or nothing after punctuation)
+    const m = ln.match(/^\s*([A-Za-z][\w .'\-]{0,40})\s*[:\-]\s*(?:.+)?$/);
+    if (!m) continue;
 
-        const key = normalize(m[1]);
-        const c = tokenMap.get(key);
-        if (c && !seen.has(c.name)) {
-            hits.push(c);
-            seen.add(c.name);
-        }
+    const key = normalize(m[1]);
+    const c = tokenMap.get(key);
+    if (c && !seen.has(c.name)) {
+      hits.push(c);
+      seen.add(c.name);
     }
+  }
 
-    return hits;
+  return hits;
 };
 
 /** =================== Stage class =================== */
 export class Stage extends StageBase<any, any, any, Config> {
-    constructor(data: InitialData<any, any, any, Config>) {
-        super(data);
-    }
+  constructor(data: InitialData<any, any, any, Config>) {
+    super(data);
+  }
 
-    /** Required by StageBase */
+  /** Required by StageBase */
   async load() {
-  return {
-    success: true,
-    ui: { visible: true },
-    state: {
-      lastSpeakers: [] as Character[],
-      balanceC: 0 as number,   // start at 0 so we can always show the badge
-    },
-  };
-}
-
-
-    /** Required by StageBase */
-    async setState(state: any) {
-        (this as any).state = state;
-    }
-
-    /** Required by StageBase (we do no pre-processing) */
-    async beforePrompt(_input: any) {
-        return {};
-    }
-
-    /** Runs after the assistant replies — detect & store speakers, and parse balance */
-    async afterResponse(botMessage: any): Promise<Partial<StageResponse<any, any>>> {
-  const cfg: Config = (this as any).config || { characters: [] };
-  const roster = cfg.characters && cfg.characters.length ? cfg.characters : DEFAULT_CHARACTERS;
-
-  // ignore user messages
-  const role = (botMessage?.role || botMessage?.author?.role || "").toLowerCase();
-  if (role === "user") return {} as Partial<StageResponse<any, any>>;
-
-  const text: string = botMessage?.text ?? botMessage?.content ?? botMessage?.body ?? "";
-
-  let speakers = detectSpeakersByPrefixes(text, roster);
-
-  // optional fallback to author if nothing detected
-  if (!speakers.length && cfg.fallbackToAuthor) {
-    const author =
-      botMessage?.author?.name ||
-      botMessage?.character?.name ||
-      (this as any)?.bot?.name ||
-      "";
-    const c = buildTokenMap(roster).get(normalize(author));
-    if (c) speakers = [c];
+    return {
+      success: true,
+      ui: { visible: true },
+      state: {
+        lastSpeakers: [] as Character[],
+        balanceC: 0 as number, // start at 0 so badge can show immediately
+      },
+    };
   }
 
-  // cap portraits per turn
-  const limit = Math.max(1, cfg.maxPerTurn ?? 3);
-  if (speakers.length > limit) speakers = speakers.slice(0, limit);
+  /** Required by StageBase */
+  async setState(state: any) {
+    (this as any).state = state;
+  }
 
-  // ---- Balance detection (optional) ----
-  let balanceC: number = (this as any).state?.balanceC ?? 0;  // keep previous, default 0
-  if (cfg.showBalance !== false) {
-    try {
-      const pattern = cfg.balanceRegex || "C\\s*([0-9][0-9,\\.]*)";
-      const re = new RegExp(pattern, "i");
-      const m = re.exec(text);
-      if (m && m[1]) {
-        const cleaned = String(m[1]).replace(/[,\s]/g, "");
-        const num = Number(cleaned);
-        if (!Number.isNaN(num)) balanceC = num;
+  /** Required by StageBase (we do no pre-processing) */
+  async beforePrompt(_input: any) {
+    return {};
+  }
+
+  /** Runs after the assistant replies — detect & store speakers, and parse balance */
+  async afterResponse(botMessage: any): Promise<Partial<StageResponse<any, any>>> {
+    const cfg: Config = (this as any).config || { characters: [] };
+    const roster = cfg.characters && cfg.characters.length ? cfg.characters : DEFAULT_CHARACTERS;
+
+    // ignore user messages
+    const role = (botMessage?.role || botMessage?.author?.role || "").toLowerCase();
+    if (role === "user") return {} as Partial<StageResponse<any, any>>;
+
+    const text: string = botMessage?.text ?? botMessage?.content ?? botMessage?.body ?? "";
+
+    let speakers = detectSpeakersByPrefixes(text, roster);
+
+    // optional fallback to author if nothing detected
+    if (!speakers.length && cfg.fallbackToAuthor) {
+      const author =
+        botMessage?.author?.name ||
+        botMessage?.character?.name ||
+        (this as any)?.bot?.name ||
+        "";
+      const c = buildTokenMap(roster).get(normalize(author));
+      if (c) speakers = [c];
+    }
+
+    // cap portraits per turn
+    const limit = Math.max(1, cfg.maxPerTurn ?? 3);
+    if (speakers.length > limit) speakers = speakers.slice(0, limit);
+
+    // ---- Balance detection (simple absolute parser) ----
+    let balanceC: number = (this as any).state?.balanceC ?? 0; // keep previous, default 0
+    if (cfg.showBalance !== false) {
+      try {
+        const pattern = cfg.balanceRegex || "C\\s*([0-9][0-9,\\.]*)";
+        const re = new RegExp(pattern, "i");
+        const m = re.exec(text);
+        if (m && m[1]) {
+          const cleaned = String(m[1]).replace(/[,\s]/g, "");
+          const num = Number(cleaned);
+          if (!Number.isNaN(num)) balanceC = num;
+        }
+      } catch {
+        /* ignore invalid regex */
       }
-    } catch {
-      /* ignore invalid regex */
     }
+
+    await this.setState({ ...(this as any).state, lastSpeakers: speakers, balanceC });
+    return {} as Partial<StageResponse<any, any>>;
   }
 
-  await this.setState({ ...(this as any).state, lastSpeakers: speakers, balanceC });
-  return {} as Partial<StageResponse<any, any>>;
-}
+  /** Right panel UI — responsive portraits with wrapping */
+  render() {
+    const cfg: Config = (this as any).config || { characters: [] };
+    if (cfg.showPanel === false) return <></>;
 
+    const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
 
-    /** Right panel UI — responsive portraits */
-    render() {
-  const cfg: Config & {
-    portraitSize?: number;   // from cog
-    currencyLabel?: string;  // from cog
-    showBalance?: boolean;   // from cog
-  } = (this as any).config || { characters: [] };
+    // Slider-controlled card width (min 120, max 1200 to be safe)
+    const CARD_W = Math.min(1200, Math.max(120, cfg.portraitSize ?? 360));
 
-  if (cfg.showPanel === false) return <></>;
+    // Balance number: use state (default 0). Always show badge if showBalance !== false
+    const currencyLabel = cfg.currencyLabel ?? "C";
+    const showBalance = cfg.showBalance !== false;
+    const cBalance = (this as any)?.state?.balanceC ?? 0;
 
-  const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
-
-  // Slider-controlled card width (min 120, max 1200 to be safe)
-  const CARD_W = Math.min(1200, Math.max(120, cfg.portraitSize ?? 360));
-
-  // Balance number: use state (default 0). Always show badge if showBalance !== false
-  const currencyLabel = cfg.currencyLabel ?? "C";
-  const showBalance = cfg.showBalance !== false;
-  const cBalance = (this as any)?.state?.balanceC ?? 0;
-
-  return (
-    <div style={{ padding: 12 }}>
-      {/* Header with optional balance pill */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 12
-      }}>
-        <div style={{ fontSize: 18, fontWeight: 800 }}>Now speaking</div>
-
-        {showBalance && (
-          <div
-            title={`${currencyLabel} balance`}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 10px",
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              fontWeight: 700,
-              fontSize: 14
-            }}
-          >
-            <span style={{
-              display: "inline-flex",
-              width: 22,
-              height: 22,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              background: "linear-gradient(135deg,#ffd54a,#ff9f1a)",
-              color: "#000",
-              fontWeight: 900
-            }}>
-              {currencyLabel}
-            </span>
-            <span>{cBalance}</span>
-          </div>
-        )}
-      </div>
-
-      {speakers.length ? (
+    return (
+      <div style={{ padding: 12 }}>
+        {/* Header with optional balance pill */}
         <div
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            gap: 14,
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 12,
           }}
         >
-          {speakers.map((c, i) => (
+          <div style={{ fontSize: 18, fontWeight: 800 }}>Now speaking</div>
+
+          {showBalance && (
             <div
-              key={i}
+              title={`${currencyLabel} balance`}
               style={{
-                width: `${CARD_W}px`,      // slider controls this
-                maxWidth: "100%",          // don’t overflow panel
-                display: "flex",
-                flexDirection: "column",
+                display: "inline-flex",
+                alignItems: "center",
                 gap: 8,
+                padding: "6px 10px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                fontWeight: 700,
+                fontSize: 14,
               }}
             >
-              <div
+              <span
                 style={{
-                  width: "100%",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  display: "flex",
+                  display: "inline-flex",
+                  width: 22,
+                  height: 22,
+                  borderRadius: 999,
                   alignItems: "center",
                   justifyContent: "center",
+                  background: "linear-gradient(135deg,#ffd54a,#ff9f1a)",
+                  color: "#000",
+                  fontWeight: 900,
                 }}
               >
-                <img
-                  src={c.imageUrl}
-                  alt={c.name}
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    height: "auto",     // keep aspect ratio
-                    objectFit: "contain"
-                  }}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                />
-              </div>
-
-              <div
-                style={{
-                  fontSize: 18,
-                  fontWeight: 800,
-                  lineHeight: 1.15,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis"
-                }}
-                title={c.name}
-              >
-                {c.name}
-              </div>
+                {currencyLabel}
+              </span>
+              <span>{cBalance}</span>
             </div>
-          ))}
+          )}
         </div>
-      ) : (
-        <div style={{ fontSize: 13, opacity: 0.7 }}>
-          No speakers detected. Dialogue lines must start with <code>Name:</code>.
-        </div>
-      )}
-    </div>
-  );
+
+        {speakers.length ? (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 14,
+            }}
+          >
+            {speakers.map((c, i) => (
+              <div
+                key={i}
+                style={{
+                  width: `${CARD_W}px`,     // slider controls this
+                  maxWidth: "100%",         // don’t overflow panel
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <div
+                  style={{
+                    width: "100%",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <img
+                    src={c.imageUrl}
+                    alt={c.name}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      height: "auto",     // keep aspect ratio
+                      objectFit: "contain",
+                      background: "#0b0b0b",
+                    }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 800,
+                    lineHeight: 1.15,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={c.name}
+                >
+                  {c.name}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, opacity: 0.7 }}>
+            No speakers detected. Dialogue lines must start with <code>Name:</code>.
+          </div>
+        )}
+      </div>
+    );
+  }
 }
