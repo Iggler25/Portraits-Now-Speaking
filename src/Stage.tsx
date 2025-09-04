@@ -1,205 +1,163 @@
-import {ReactElement} from "react";
-import {StageBase, StageResponse, InitialData, Message} from "@chub-ai/stages-ts";
-import {LoadResponse} from "@chub-ai/stages-ts/dist/types/load";
+﻿import React from "react";
+import { StageBase, type InitialData } from "@chub-ai/stages-ts";
+import type { StageResponse } from "@chub-ai/stages-ts/dist/types/stage";
 
-/***
- The type that this stage persists message-level state in.
- This is primarily for readability, and not enforced.
+/** =================== Types =================== */
+type Character = {
+    name: string;
+    aliases?: string[];
+    imageUrl: string;
+    traits?: string[];
+};
 
- @description This type is saved in the database after each message,
-  which makes it ideal for storing things like positions and statuses,
-  but not for things like history, which is best managed ephemerally
-  in the internal state of the Stage class itself.
- ***/
-type MessageStateType = any;
+type Config = {
+    showPanel?: boolean;
+    maxPerTurn?: number;
+    fallbackToAuthor?: boolean;
+    characters: Character[];
+};
 
-/***
- The type of the stage-specific configuration of this stage.
+/** =================== Roster (put your real URLs) =================== */
+const DEFAULT_CHARACTERS: Character[] = [
+    { name: "Lilith", aliases: ["Lady Lilith"], imageUrl: "https://files.catbox.moe/hpcqr0.jpg" },
+    { name: "Ankha", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_ANKHA.png" },
+    { name: "Widowmaker", aliases: ["Amelie", "Amélie", "Lacroix"], imageUrl: "https://files.catbox.moe/REPLACE_WIDOWMAKER.png" },
+    { name: "Rebecca", aliases: ["Becca"], imageUrl: "https://files.catbox.moe/REPLACE_REBECCA.png" },
+    { name: "Shadowheart", aliases: ["Shadow Heart"], imageUrl: "https://files.catbox.moe/REPLACE_SHADOWHEART.png" },
+    { name: "Kaelen", aliases: ["Kael"], imageUrl: "https://files.catbox.moe/REPLACE_KAELEN.png" },
+    { name: "Blair", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_BLAIR.png" },
+    { name: "Maya", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_MAYA.png" },
+    { name: "Tracer", aliases: ["Lena", "Oxton", "Lena Oxton"], imageUrl: "https://files.catbox.moe/REPLACE_TRACER.png" },
+    { name: "Nyssia", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_NYSSIA.png" },
+    { name: "Morgana", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_MORGANA.png" },
+    { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/REPLACE_NAMI.png" },
+    { name: "Nico Robin", aliases: ["Nico", "Robin", "NicoRobin"], imageUrl: "https://files.catbox.moe/REPLACE_NICO_ROBIN.png" },
+    { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/REPLACE_MAKI_OZE.png" }
+];
 
- @description This is for things you want people to be able to configure,
-  like background color.
- ***/
-type ConfigType = any;
+/** =================== Helpers =================== */
+const normalize = (s: string) =>
+    (s || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "");
 
-/***
- The type that this stage persists chat initialization state in.
- If there is any 'constant once initialized' static state unique to a chat,
- like procedurally generated terrain that is only created ONCE and ONLY ONCE per chat,
- it belongs here.
- ***/
-type InitStateType = any;
-
-/***
- The type that this stage persists dynamic chat-level state in.
- This is for any state information unique to a chat,
-    that applies to ALL branches and paths such as clearing fog-of-war.
- It is usually unlikely you will need this, and if it is used for message-level
-    data like player health then it will enter an inconsistent state whenever
-    they change branches or jump nodes. Use MessageStateType for that.
- ***/
-type ChatStateType = any;
-
-/***
- A simple example class that implements the interfaces necessary for a Stage.
- If you want to rename it, be sure to modify App.js as well.
- @link https://github.com/CharHubAI/chub-stages-ts/blob/main/src/types/stage.ts
- ***/
-export class Stage extends StageBase<InitStateType, ChatStateType, MessageStateType, ConfigType> {
-
-    /***
-     A very simple example internal state. Can be anything.
-     This is ephemeral in the sense that it isn't persisted to a database,
-     but exists as long as the instance does, i.e., the chat page is open.
-     ***/
-    myInternalState: {[key: string]: any};
-
-    constructor(data: InitialData<InitStateType, ChatStateType, MessageStateType, ConfigType>) {
-        /***
-         This is the first thing called in the stage,
-         to create an instance of it.
-         The definition of InitialData is at @link https://github.com/CharHubAI/chub-stages-ts/blob/main/src/types/initial.ts
-         Character at @link https://github.com/CharHubAI/chub-stages-ts/blob/main/src/types/character.ts
-         User at @link https://github.com/CharHubAI/chub-stages-ts/blob/main/src/types/user.ts
-         ***/
-        super(data);
-        const {
-            characters,         // @type:  { [key: string]: Character }
-            users,                  // @type:  { [key: string]: User}
-            config,                                 //  @type:  ConfigType
-            messageState,                           //  @type:  MessageStateType
-            environment,                     // @type: Environment (which is a string)
-            initState,                             // @type: null | InitStateType
-            chatState                              // @type: null | ChatStateType
-        } = data;
-        this.myInternalState = messageState != null ? messageState : {'someKey': 'someValue'};
-        this.myInternalState['numUsers'] = Object.keys(users).length;
-        this.myInternalState['numChars'] = Object.keys(characters).length;
+const buildTokenMap = (roster: Character[]) => {
+    const map = new Map<string, Character>();
+    for (const c of roster || []) {
+        const tokens = [c.name, ...(c.aliases || [])].filter(Boolean) as string[];
+        for (const t of tokens) map.set(normalize(t), c);
     }
+    return map;
+};
 
-    async load(): Promise<Partial<LoadResponse<InitStateType, ChatStateType, MessageStateType>>> {
-        /***
-         This is called immediately after the constructor, in case there is some asynchronous code you need to
-         run on instantiation.
-         ***/
-        return {
-            /*** @type boolean @default null
-             @description The 'success' boolean returned should be false IFF (if and only if), some condition is met that means
-              the stage shouldn't be run at all and the iFrame can be closed/removed.
-              For example, if a stage displays expressions and no characters have an expression pack,
-              there is no reason to run the stage, so it would return false here. ***/
-            success: true,
-            /*** @type null | string @description an error message to show
-             briefly at the top of the screen, if any. ***/
-            error: null,
-            initState: null,
-            chatState: null,
-        };
-    }
+const detectSpeakersByPrefixes = (text: string, roster: Character[]): Character[] => {
+    if (!text) return [];
+    const tokenMap = buildTokenMap(roster);
+    const hits: Character[] = [];
+    const seen = new Set<string>();
 
-    async setState(state: MessageStateType): Promise<void> {
-        /***
-         This can be called at any time, typically after a jump to a different place in the chat tree
-         or a swipe. Note how neither InitState nor ChatState are given here. They are not for
-         state that is affected by swiping.
-         ***/
-        if (state != null) {
-            this.myInternalState = {...this.myInternalState, ...state};
+    for (const ln of text.split(/\r?\n/)) {
+        // Accept "Name:" or "Name -" (also full-width colon)
+        const m = ln.match(/^\s*([A-Za-z][\w .'-]{0,40})\s*[:：-]\s+/);
+        if (!m) continue;
+        const key = normalize(m[1]);
+        const c = tokenMap.get(key);
+        if (c && !seen.has(c.name)) {
+            hits.push(c);
+            seen.add(c.name);
         }
     }
+    return hits;
+};
 
-    async beforePrompt(userMessage: Message): Promise<Partial<StageResponse<ChatStateType, MessageStateType>>> {
-        /***
-         This is called after someone presses 'send', but before anything is sent to the LLM.
-         ***/
-        const {
-            content,            /*** @type: string
-             @description Just the last message about to be sent. ***/
-            anonymizedId,       /*** @type: string
-             @description An anonymized ID that is unique to this individual
-              in this chat, but NOT their Chub ID. ***/
-            isBot             /*** @type: boolean
-             @description Whether this is itself from another bot, ex. in a group chat. ***/
-        } = userMessage;
+/** =================== Stage class =================== */
+export class Stage extends StageBase<any, any, any, Config> {
+    constructor(data: InitialData<any, any, any, Config>) {
+        super(data);
+    }
+
+    /** Required by StageBase */
+    async load() {
         return {
-            /*** @type null | string @description A string to add to the
-             end of the final prompt sent to the LLM,
-             but that isn't persisted. ***/
-            stageDirections: null,
-            /*** @type MessageStateType | null @description the new state after the userMessage. ***/
-            messageState: {'someKey': this.myInternalState['someKey']},
-            /*** @type null | string @description If not null, the user's message itself is replaced
-             with this value, both in what's sent to the LLM and in the database. ***/
-            modifiedMessage: null,
-            /*** @type null | string @description A system message to append to the end of this message.
-             This is unique in that it shows up in the chat log and is sent to the LLM in subsequent messages,
-             but it's shown as coming from a system user and not any member of the chat. If you have things like
-             computed stat blocks that you want to show in the log, but don't want the LLM to start trying to
-             mimic/output them, they belong here. ***/
-            systemMessage: null,
-            /*** @type null | string @description an error message to show
-             briefly at the top of the screen, if any. ***/
-            error: null,
-            chatState: null,
+            success: true,
+            ui: { visible: true },
+            state: { lastSpeakers: [] as Character[] }
         };
     }
 
-    async afterResponse(botMessage: Message): Promise<Partial<StageResponse<ChatStateType, MessageStateType>>> {
-        /***
-         This is called immediately after a response from the LLM.
-         ***/
-        const {
-            content,            /*** @type: string
-             @description The LLM's response. ***/
-            anonymizedId,       /*** @type: string
-             @description An anonymized ID that is unique to this individual
-              in this chat, but NOT their Chub ID. ***/
-            isBot             /*** @type: boolean
-             @description Whether this is from a bot, conceivably always true. ***/
-        } = botMessage;
-        return {
-            /*** @type null | string @description A string to add to the
-             end of the final prompt sent to the LLM,
-             but that isn't persisted. ***/
-            stageDirections: null,
-            /*** @type MessageStateType | null @description the new state after the botMessage. ***/
-            messageState: {'someKey': this.myInternalState['someKey']},
-            /*** @type null | string @description If not null, the bot's response itself is replaced
-             with this value, both in what's sent to the LLM subsequently and in the database. ***/
-            modifiedMessage: null,
-            /*** @type null | string @description an error message to show
-             briefly at the top of the screen, if any. ***/
-            error: null,
-            systemMessage: null,
-            chatState: null
-        };
+    /** Required by StageBase */
+    async setState(state: any) {
+        (this as any).state = state;
     }
 
+    /** Required by StageBase (we do no pre-processing) */
+    async beforePrompt(_input: any) {
+        return {};
+    }
 
-    render(): ReactElement {
-        /***
-         There should be no "work" done here. Just returning the React element to display.
-         If you're unfamiliar with React and prefer video, I've heard good things about
-         @link https://scrimba.com/learn/learnreact but haven't personally watched/used it.
+    /** Runs after the assistant replies — detect & store speakers */
+    async afterResponse(botMessage: any): Promise<Partial<StageResponse<any, any>>> {
+        const cfg: Config = (this as any).config || { characters: [] };
+        const roster =
+            cfg.characters && cfg.characters.length ? cfg.characters : DEFAULT_CHARACTERS;
 
-         For creating 3D and game components, react-three-fiber
-           @link https://docs.pmnd.rs/react-three-fiber/getting-started/introduction
-           and the associated ecosystem of libraries are quite good and intuitive.
+        // ignore user messages
+        const role = (botMessage?.role || botMessage?.author?.role || "").toLowerCase();
+        if (role === "user") return {} as Partial<StageResponse<any, any>>;
 
-         Cuberun is a good example of a game built with them.
-           @link https://github.com/akarlsten/cuberun (Source)
-           @link https://cuberun.adamkarlsten.com/ (Demo)
-         ***/
-        return <div style={{
-            width: '100vw',
-            height: '100vh',
-            display: 'grid',
-            alignItems: 'stretch'
-        }}>
-            <div>Hello World! I'm an empty stage! With {this.myInternalState['someKey']}!</div>
-            <div>There is/are/were {this.myInternalState['numChars']} character(s)
-                and {this.myInternalState['numUsers']} human(s) here.
+        const text: string = botMessage?.text || "";
+        let speakers = detectSpeakersByPrefixes(text, roster);
+
+        // optional fallback to author if nothing detected
+        if (!speakers.length && cfg.fallbackToAuthor) {
+            const author =
+                botMessage?.author?.name ||
+                botMessage?.character?.name ||
+                (this as any)?.bot?.name ||
+                "";
+            const c = buildTokenMap(roster).get(normalize(author));
+            if (c) speakers = [c];
+        }
+
+        // cap portraits per turn
+        const limit = Math.max(1, cfg.maxPerTurn ?? 3);
+        if (speakers.length > limit) speakers = speakers.slice(0, limit);
+
+        // persist state; host reads what we set
+        const nextState = { ...(this as any).state, lastSpeakers: speakers };
+        await this.setState(nextState);
+
+        // typed empty StageResponse
+        return {} as Partial<StageResponse<any, any>>;
+    }
+
+    /** Right panel UI — must return a ReactElement */
+    render() {
+        const cfg: Config = (this as any).config || { characters: [] };
+        if (cfg.showPanel === false) return <></>; // hidden but valid element
+
+        const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
+
+        return (
+            <div className="p-3 overflow-auto h-full">
+                <h3 className="text-lg font-bold mb-2">Now speaking</h3>
+                {speakers.length ? (
+                    <div className="flex flex-wrap gap-3">
+                        {speakers.map((c, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                                <img src={c.imageUrl} alt={c.name} className="w-14 h-14 rounded-xl object-cover" />
+                                <div className="text-sm font-medium max-w-[12rem] truncate">{c.name}</div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-sm opacity-70">
+                        No speakers detected. Dialogue lines must start with <code>Name:</code>.
+                    </div>
+                )}
             </div>
-        </div>;
+        );
     }
-
 }
