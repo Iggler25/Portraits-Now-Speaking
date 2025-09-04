@@ -24,7 +24,7 @@ A Stage is a software component written by other people that can be used within 
 - **Actively Developed Platform:** This is just the beginning. Scheduling, full VR/AR support, non-React implementations, and more are incoming.
 
 
-# Meta -- But Why?
+# Meta -- But Why?.
 
 As far as why this has been created, I’m trying to go where the puck is going instead of where it is, and I think there’s a need for something like itch.io for generative AI where (1) developers don’t have to worry about integrations and devops and (2) there’s an audience of people that are already explicitly on the AI side of the pro/anti discussion.
 
