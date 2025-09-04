@@ -1,14 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Portraits — Now Speaking",
   "type": "object",
   "required": ["characters"],
   "properties": {
-    "showPanel": {
-      "type": "boolean",
-      "title": "Show the right-side panel",
-      "default": true
-    },
     "maxPerTurn": {
       "type": "integer",
       "title": "Max portraits to show per bot message",
@@ -16,25 +10,17 @@
       "minimum": 1,
       "maximum": 12
     },
-    "fallbackToAuthor": {
-      "type": "boolean",
-      "title": "If no speakers detected, show the bot author's portrait",
-      "default": false
-    },
-
-    /* -------- New toggles you asked for -------- */
     "portraitSize": {
       "type": "integer",
-      "title": "Portrait size (px)",
-      "description": "Base width for each portrait. In tight mode, items shrink together to fit.",
-      "default": 360,
+      "title": "Portrait size (px): Base width for each portrait.",
+      "description": "Used when wrapping is allowed. In single-row mode items will auto-shrink to fit, capped by this width.",
+      "default": 560,
       "minimum": 120,
-      "maximum": 1024
+      "maximum": 1600
     },
-    "tightGrid": {
+    "keepOnOneRow": {
       "type": "boolean",
       "title": "Keep portraits on one row (auto-shrink)",
-      "description": "If off, portraits wrap to the next line instead of shrinking.",
       "default": true
     },
     "showBalance": {
@@ -42,13 +28,16 @@
       "title": "Show currency balance",
       "default": true
     },
-    "currencyLabel": {
+    "balanceLabel": {
       "type": "string",
       "title": "Currency label",
       "default": "C"
     },
-
-    /* -------- Characters list -------- */
+    "fallbackToAuthor": {
+      "type": "boolean",
+      "title": "If no speakers detected, show the bot author's portrait",
+      "default": false
+    },
     "characters": {
       "type": "array",
       "title": "Characters",
@@ -61,19 +50,11 @@
           "name": { "type": "string", "title": "Display name" },
           "aliases": {
             "type": "array",
-            "title": "Aliases (optional)",
+            "title": "Aliases that might appear before the colon (e.g., 'Nico')",
             "items": { "type": "string" }
           },
-          "imageUrl": {
-            "type": "string",
-            "format": "uri",
-            "title": "Direct image URL (HTTPS)"
-          },
-          "traits": {
-            "type": "array",
-            "title": "Traits (optional)",
-            "items": { "type": "string" }
-          }
+          "imageUrl": { "type": "string", "format": "uri", "title": "Direct image URL (HTTPS)" },
+          "traits": { "type": "array", "items": { "type": "string" }, "title": "Traits (optional)" }
         }
       }
     }
