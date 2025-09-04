@@ -178,148 +178,135 @@ export class Stage extends StageBase<any, any, any, Config> {
 
     /** Right panel UI — responsive portraits */
     render() {
-        const cfg: Config = (this as any).config || { characters: [] };
-        const isHidden = cfg.showPanel === false;
-        const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
+  const cfg: Config & {
+    portraitSize?: number;   // from cog
+    currencyLabel?: string;  // from cog
+    showBalance?: boolean;   // from cog
+  } = (this as any).config || { characters: [] };
 
-        // ---- config with aliases handled ----
-        const PORTRAIT_PX = Math.max(120, cfg.portraitSize ?? 360);
-        const singleRow = (cfg.keepOnOneRow ?? cfg.tightGrid ?? true);
-        const currencyLabel = (cfg.balanceLabel ?? cfg.currencyLabel ?? "C");
+  if (cfg.showPanel === false) return <></>;
 
-        // Try to find a number for “C” balance from a few likely places
-        const guessNumber = (v: any) =>
-            typeof v === "number" && isFinite(v)
-                ? v
-                : (typeof v === "string" && /^\d+(\.\d+)?$/.test(v) ? Number(v) : undefined);
+  const speakers: Character[] = ((this as any).state?.lastSpeakers) || [];
 
-        const cBalance =
-            guessNumber((this as any)?.bot?.balanceC) ??
-            guessNumber((this as any)?.bot?.coins) ??
-            guessNumber((this as any)?.character?.balanceC) ??
-            guessNumber((this as any)?.state?.balanceC);
+  // Slider-controlled card width (min 120, max 1200 to be safe)
+  const CARD_W = Math.min(1200, Math.max(120, cfg.portraitSize ?? 360));
 
-        // grid definition:
-        const gridTemplateColumns = singleRow
-            ? `repeat(${Math.max(1, speakers.length)}, 1fr)`
-            : `repeat(auto-fit, minmax(${Math.min(220, PORTRAIT_PX)}px, 1fr))`;
+  // Balance number: use state (default 0). Always show badge if showBalance !== false
+  const currencyLabel = cfg.currencyLabel ?? "C";
+  const showBalance = cfg.showBalance !== false;
+  const cBalance = (this as any)?.state?.balanceC ?? 0;
 
-        if (isHidden) return <></>;
+  return (
+    <div style={{ padding: 12 }}>
+      {/* Header with optional balance pill */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 12
+      }}>
+        <div style={{ fontSize: 18, fontWeight: 800 }}>Now speaking</div>
 
-        return (
-            <div style={{ padding: 12, borderRadius: 10 }}>
-                {/* Header row with optional balance */}
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 12
-                    }}
-                >
-                    <div style={{ fontSize: 18, fontWeight: 800 }}>Now speaking</div>
+        {showBalance && (
+          <div
+            title={`${currencyLabel} balance`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 10px",
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              fontWeight: 700,
+              fontSize: 14
+            }}
+          >
+            <span style={{
+              display: "inline-flex",
+              width: 22,
+              height: 22,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              background: "linear-gradient(135deg,#ffd54a,#ff9f1a)",
+              color: "#000",
+              fontWeight: 900
+            }}>
+              {currencyLabel}
+            </span>
+            <span>{cBalance}</span>
+          </div>
+        )}
+      </div>
 
-                    {(cfg.showBalance ?? true) && cBalance !== undefined && (
-                        <div
-                            title={`${currencyLabel} balance`}
-                            style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 8,
-                                padding: "6px 10px",
-                                borderRadius: 999,
-                                background: "rgba(255,255,255,0.06)",
-                                border: "1px solid rgba(255,255,255,0.08)",
-                                fontWeight: 700,
-                                fontSize: 14
-                            }}
-                        >
-                            <span
-                                style={{
-                                    display: "inline-flex",
-                                    width: 22,
-                                    height: 22,
-                                    borderRadius: 999,
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    background: "linear-gradient(135deg,#ffd54a,#ff9f1a)",
-                                    color: "#000",
-                                    fontWeight: 900
-                                }}
-                            >
-                                {currencyLabel}
-                            </span>
-                            <span>{cBalance}</span>
-                        </div>
-                    )}
-                </div>
+      {speakers.length ? (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 14,
+          }}
+        >
+          {speakers.map((c, i) => (
+            <div
+              key={i}
+              style={{
+                width: `${CARD_W}px`,      // slider controls this
+                maxWidth: "100%",          // don’t overflow panel
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <img
+                  src={c.imageUrl}
+                  alt={c.name}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "auto",     // keep aspect ratio
+                    objectFit: "contain"
+                  }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
 
-                {speakers.length ? (
-                    <div
-                        style={{
-                            display: "grid",
-                            gap: 14,
-                            gridTemplateColumns,
-                            alignItems: "start"
-                        }}
-                    >
-                        {speakers.map((c, i) => (
-                            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                <div
-                                    style={{
-                                        width: "100%",
-                                        maxWidth: PORTRAIT_PX,
-                                        maxHeight: PORTRAIT_PX * 1.2,
-                                        background: "rgba(255,255,255,0.03)",
-                                        border: "1px solid rgba(255,255,255,0.06)",
-                                        borderRadius: 14,
-                                        overflow: "hidden",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center"
-                                    }}
-                                >
-                                    <img
-                                        src={c.imageUrl}
-                                        alt={c.name}
-                                        loading="lazy"
-                                        referrerPolicy="no-referrer"
-                                        style={{
-                                            width: "100%",
-                                            height: "auto",
-                                            objectFit: "contain", // keep original aspect
-                                            display: "block",
-                                            background: "#0b0b0b"
-                                        }}
-                                        onError={(e) => {
-                                            (e.currentTarget as HTMLImageElement).style.display = "none";
-                                        }}
-                                    />
-                                </div>
-
-                                <div
-                                    style={{
-                                        fontSize: 18,
-                                        fontWeight: 800,
-                                        lineHeight: 1.15,
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                        overflow: "hidden",
-                                        maxWidth: PORTRAIT_PX
-                                    }}
-                                    title={c.name}
-                                >
-                                    {c.name}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div style={{ fontSize: 13, opacity: 0.7 }}>
-                        No speakers detected. Dialogue lines must start with <code>Name:</code>.
-                    </div>
-                )}
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: 800,
+                  lineHeight: 1.15,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis"
+                }}
+                title={c.name}
+              >
+                {c.name}
+              </div>
             </div>
-        );
-    }
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, opacity: 0.7 }}>
+          No speakers detected. Dialogue lines must start with <code>Name:</code>.
+        </div>
+      )}
+    </div>
+  );
 }
