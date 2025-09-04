@@ -1,39 +1,63 @@
 name: "Portraits — Now Speaking for Lilith's Aethial"
 position: RIGHT
-config_schema: '@config_schema.json?v=3'
-"$schema": "https://json-schema.org/draft/2020-12/schema"
-type: object
-properties:
+config_schema:
+  type: object
+  required: [characters]
+  properties:
     showPanel:
       type: boolean
+      title: Show the right-side panel
       default: true
     maxPerTurn:
       type: integer
-      title: "Max portraits to show per bot message"
+      title: Max portraits to show per bot message
       default: 3
+      minimum: 1
+      maximum: 12
     fallbackToAuthor:
       type: boolean
-      title: "If no speakers detected, show the bot author's portrait"
+      title: Fallback to bot author if none detected
       default: false
+    portraitSize:
+      type: integer
+      title: Portrait size (px)
+      description: Base width for each portrait.
+      default: 560
+      minimum: 120
+      maximum: 1024
+    tightGrid:
+      type: boolean
+      title: Keep portraits on one row (auto-shrink)
+      description: If off, portraits wrap instead of shrinking.
+      default: true
+    showBalance:
+      type: boolean
+      title: Show currency balance
+      default: true
+    currencyLabel:
+      type: string
+      title: Currency label
+      default: "C"
     characters:
       type: array
-      title: "Characters"
+      title: Characters
       minItems: 1
       maxItems: 32
       items:
         type: object
         required: [name, imageUrl]
         properties:
-          name: { type: string, title: "Display name" }
+          name: { type: string, title: Display name }
           aliases:
             type: array
-            title: "Aliases that might appear before the colon (e.g., 'Nico')"
+            title: Aliases (optional)
             items: { type: string }
-          imageUrl: { type: string, format: uri, title: "Direct image URL (HTTPS)" }
+          imageUrl: { type: string, format: uri, title: Direct image URL (HTTPS) }
           traits:
             type: array
-            title: "Traits (optional)"
+            title: Traits (optional)
             items: { type: string }
+
 
 github_path: 'https://github.com/Iggler25/Portraits-Now-Speaking-Liliths_Aethiel'
 
