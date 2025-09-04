@@ -6,6 +6,20 @@
     "showPanel": { "type": "boolean", "title": "Show the right-side panel", "default": true },
     "maxPerTurn": { "type": "integer", "title": "Max portraits to show per bot message", "default": 3 },
     "fallbackToAuthor": { "type": "boolean", "title": "If no speakers detected, show the bot author's portrait", "default": false },
+
+    "showBalance": {
+      "type": "boolean",
+      "title": "Show C balance",
+      "default": true,
+      "description": "Toggle the Corruption Ether balance badge in the header."
+    },
+    "balanceRegex": {
+      "type": "string",
+      "title": "Regex to extract C balance (first capture = number)",
+      "default": "C\\s*([0-9][0-9,\\.]*)",
+      "description": "Example matches: \"C 1,250\", \"C1250\", \"Balance: C 500\"."
+    },
+
     "characters": {
       "type": "array",
       "title": "Characters",
