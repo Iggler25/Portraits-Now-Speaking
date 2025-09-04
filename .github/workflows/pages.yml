@@ -11,28 +11,30 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
+      # 1) Set up Node in a clean workspace (no package.json yet)
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: yarn
 
-      # --- IMPORTANT: switch the runner to Yarn 4 ---
+      # 2) Activate Corepack and pin Yarn 4.9.4 globally for this job
       - name: Enable Corepack & activate Yarn 4.9.4
         run: |
           corepack enable
           corepack prepare yarn@4.9.4 --activate
-          yarn -v  # should print 4.9.4
+          yarn -v
 
-      - name: Install deps
+      # 3) Now checkout the repo (Yarn 4 is active already)
+      - uses: actions/checkout@v4
+
+      # 4) Install / build / upload
+      - name: Install deps (immutable)
         run: yarn install --immutable
 
       - name: Build
