@@ -22,12 +22,11 @@ type Config = {
   showBalance?: boolean;
   balanceRegex?: string;
 
-  // NEW: show portraits as soon as the panel loads
+  // Show portraits as soon as the panel loads
   defaultSpeakers?: string[];
 };
 
 /** =================== Default roster =================== */
-/* Replace any REPLACE_*.jpg/png with real links when ready */
 const DEFAULT_CHARACTERS: Character[] = [
   { name: "Lilith", aliases: ["Lady Lilith"], imageUrl: "https://files.catbox.moe/hpcqr0.jpg" },
   { name: "Ankha", aliases: [], imageUrl: "https://files.catbox.moe/akibog.jpg" },
@@ -44,7 +43,7 @@ const DEFAULT_CHARACTERS: Character[] = [
   { name: "Nico Robin", aliases: ["Nico", "Robin", "NicoRobin"], imageUrl: "https://files.catbox.moe/sut7qk.jpg" },
   { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/d3eitq.jpg" },
 
-  // NEW additions
+  // New additions
   { name: "Angela Orosco", aliases: ["Angela", "Orosco"], imageUrl: "https://files.catbox.moe/mjxkjp.jpg" },
   { name: "Boa Hancock", aliases: ["Hancock", "Boa"], imageUrl: "https://files.catbox.moe/u7tsop.jpg" },
   { name: "Cammy White", aliases: ["Cammy"], imageUrl: "https://files.catbox.moe/fnd4c1.jpg" },
@@ -99,6 +98,59 @@ const detectSpeakersByPrefixes = (text: string, roster: Character[]): Character[
   return hits;
 };
 
+/** -------- Balance parser (totals & deltas; currency-aware) -------- */
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const cleanNum = (raw: string) => raw.replace(/[,\s]/g, "");
+function computeNewBalanceFromText(text: string, label: string, prev: number): number {
+  if (!text) return prev;
+  const L = esc(label || "C");
+  let total: number | null = null;
+  let deltaSum = 0;
+
+  const toNumber = (s: string) => {
+    const n = Number(cleanNum(s));
+    return Number.isFinite(n) ? n : NaN;
+  };
+
+  // Absolute totals (win if present)
+  {
+    const totalRe = new RegExp(`(?:total|balance|now\\s+at)\\s*([0-9][\\d,\\.]*)\\s*${L}`, "i");
+    const m = totalRe.exec(text);
+    if (m && m[1]) {
+      const v = toNumber(m[1]);
+      if (!Number.isNaN(v)) total = v;
+    }
+  }
+  if (total == null) {
+    const totalAlt = new RegExp(`${L}\\s*[:\\-]?\\s*([0-9][\\d,\\.]*)\\b`, "i");
+    const m = totalAlt.exec(text);
+    if (m && m[1]) {
+      const v = toNumber(m[1]);
+      if (!Number.isNaN(v)) total = v;
+    }
+  }
+
+  // Sum deltas: "+15C", "-5C", "C +25"
+  {
+    const suf = new RegExp(`([+\\-]\\s*\\d[\\d,\\.]*)\\s*${L}\\b`, "gi");
+    let m: RegExpExecArray | null;
+    while ((m = suf.exec(text)) !== null) {
+      const v = toNumber(m[1]);
+      if (!Number.isNaN(v)) deltaSum += v;
+    }
+
+    const pre = new RegExp(`${L}\\s*([+\\-]\\s*\\d[\\d,\\.]*)\\b`, "gi");
+    while ((m = pre.exec(text)) !== null) {
+      const v = toNumber(m[1]);
+      if (!Number.isNaN(v)) deltaSum += v;
+    }
+  }
+
+  if (total != null) return total;
+  if (deltaSum !== 0) return Math.max(0, prev + deltaSum);
+  return prev;
+}
+
 /** =================== Stage class =================== */
 export class Stage extends StageBase<any, any, any, Config> {
   constructor(data: InitialData<any, any, any, Config>) {
@@ -108,27 +160,33 @@ export class Stage extends StageBase<any, any, any, Config> {
   /** Show Lilith (or configured defaults) immediately */
   async load() {
     const cfg: Config = (this as any).config || { characters: [] };
-    const roster = cfg.characters && cfg.characters.length ? cfg.characters : DEFAULT_CHARACTERS;
 
+    // union roster = config ∪ defaults
+    const cfgRoster = Array.isArray(cfg.characters) ? cfg.characters : [];
+    const unionRoster: Character[] = [
+      ...DEFAULT_CHARACTERS,
+      ...cfgRoster.filter(c => !DEFAULT_CHARACTERS.some(d => normalize(d.name) === normalize(c.name))),
+    ];
+
+    // resolve defaultSpeakers from the union roster
     let initialSpeakers: Character[] = [];
-    if (Array.isArray(cfg.defaultSpeakers) && cfg.defaultSpeakers.length) {
-      const map = buildTokenMap(roster);
-      for (const n of cfg.defaultSpeakers) {
-        const c = map.get(normalize(n));
-        if (c && !initialSpeakers.find(s => s.name === c.name)) {
-          initialSpeakers.push(c);
-        }
+    const want = (Array.isArray(cfg.defaultSpeakers) && cfg.defaultSpeakers.length)
+      ? cfg.defaultSpeakers
+      : ["Lilith"];
+
+    const map = buildTokenMap(unionRoster);
+    for (const n of want) {
+      const c = map.get(normalize(n));
+      if (c && !initialSpeakers.find(s => s.name === c.name)) {
+        initialSpeakers.push(c);
       }
-    } else {
-      const lilith = roster.find(c => normalize(c.name) === normalize("Lilith"));
-      if (lilith) initialSpeakers = [lilith];
     }
 
     return {
       success: true,
       ui: { visible: true },
       state: {
-        lastSpeakers: initialSpeakers,
+        lastSpeakers: initialSpeakers,  // Lilith shows even before any message
         balanceC: 0,
       },
     };
@@ -167,19 +225,11 @@ export class Stage extends StageBase<any, any, any, Config> {
     const limit = Math.max(1, cfg.maxPerTurn ?? 4); // 2×2 grid target
     if (speakers.length > limit) speakers = speakers.slice(0, limit);
 
-    // Balance parse (absolute number visible in the text)
+    // Balance parse (totals & deltas; respects currencyLabel)
     let balanceC: number = (this as any).state?.balanceC ?? 0;
     if (cfg.showBalance !== false) {
-      try {
-        const pattern = cfg.balanceRegex || "C\\s*([0-9][0-9,\\.]*)";
-        const re = new RegExp(pattern, "i");
-        const m = re.exec(text);
-        if (m && m[1]) {
-          const cleaned = String(m[1]).replace(/[,\s]/g, "");
-          const num = Number(cleaned);
-          if (!Number.isNaN(num)) balanceC = num;
-        }
-      } catch {}
+      const label = (cfg.currencyLabel || "C").trim();
+      balanceC = computeNewBalanceFromText(text, label, balanceC);
     }
 
     await this.setState({ ...(this as any).state, lastSpeakers: speakers, balanceC });
