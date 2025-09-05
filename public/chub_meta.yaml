@@ -1,47 +1,5 @@
 name: "Portraits — Now Speaking for Lilith's Aethial"
 position: RIGHT
-config_schema: '@config.schema.json'
-
-config_schema:
-  type: object
-  required: [characters]
-  properties:
-    maxPerTurn:
-      type: integer
-      title: Max portraits to show per bot message
-      default: 3
-      minimum: 1
-      maximum: 12
-    portraitSize:
-      type: integer
-      title: Portrait size (px)
-      description: Base width for each portrait.
-      default: 360
-      minimum: 120
-      maximum: 1200
-    showBalance:
-      type: boolean
-      title: Show currency balance
-      default: true
-    currencyLabel:
-      type: string
-      title: Currency label
-      default: "C"
-    characters:
-      type: array
-      title: Characters
-      minItems: 1
-      maxItems: 32
-      items:
-        type: object
-        required: [name, imageUrl]
-        properties:
-          name: { type: string, title: Display name }
-          aliases:
-            type: array
-            items: { type: string }
-          imageUrl: { type: string, format: uri, title: Direct image URL (HTTPS) }
-
 
 
 github_path: 'https://github.com/Iggler25/Portraits-Now-Speaking-Liliths_Aethiel'
