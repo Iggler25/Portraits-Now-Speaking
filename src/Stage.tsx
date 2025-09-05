@@ -16,14 +16,18 @@ type Config = {
   fallbackToAuthor?: boolean;
   characters: Character[];
 
-  // (kept for future use – not used for layout now)
+  // UI / parsing
   portraitSize?: number;
   currencyLabel?: string;
   showBalance?: boolean;
   balanceRegex?: string;
+
+  // NEW: show portraits as soon as the panel loads
+  defaultSpeakers?: string[];
 };
 
-/** =================== Roster (put your real URLs) =================== */
+/** =================== Default roster =================== */
+/* Replace any REPLACE_*.jpg/png with real links when ready */
 const DEFAULT_CHARACTERS: Character[] = [
   { name: "Lilith", aliases: ["Lady Lilith"], imageUrl: "https://files.catbox.moe/hpcqr0.jpg" },
   { name: "Ankha", aliases: [], imageUrl: "https://files.catbox.moe/akibog.jpg" },
@@ -38,7 +42,15 @@ const DEFAULT_CHARACTERS: Character[] = [
   { name: "Morgana", aliases: [], imageUrl: "https://files.catbox.moe/63ayl4.jpg" },
   { name: "Nami", aliases: [], imageUrl: "https://files.catbox.moe/g8v18s.jpg" },
   { name: "Nico Robin", aliases: ["Nico", "Robin", "NicoRobin"], imageUrl: "https://files.catbox.moe/sut7qk.jpg" },
-  { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/d3eitq.jpg" }
+  { name: "Maki Oze", aliases: ["Maki", "Oze", "MakiOze"], imageUrl: "https://files.catbox.moe/d3eitq.jpg" },
+
+  // NEW additions
+  { name: "Angela Orosco", aliases: ["Angela", "Orosco"], imageUrl: "https://files.catbox.moe/mjxkjp.jpg" },
+  { name: "Boa Hancock", aliases: ["Hancock", "Boa"], imageUrl: "https://files.catbox.moe/u7tsop.jpg" },
+  { name: "Cammy White", aliases: ["Cammy"], imageUrl: "https://files.catbox.moe/fnd4c1.jpg" },
+  { name: "Quiet", aliases: [], imageUrl: "https://files.catbox.moe/zh6sdw.jpg" },
+  { name: "Tifa", aliases: ["Tifa Lockhart", "Lockhart"], imageUrl: "https://files.catbox.moe/654jgo.jpg" },
+  { name: "Yoruichi", aliases: ["Yoruichi Shihoin", "Yoruichi Shihōin", "Shihoin", "Shihōin"], imageUrl: "https://files.catbox.moe/jj3740.jpg" },
 ];
 
 /** =================== Helpers =================== */
@@ -93,13 +105,31 @@ export class Stage extends StageBase<any, any, any, Config> {
     super(data);
   }
 
+  /** Show Lilith (or configured defaults) immediately */
   async load() {
+    const cfg: Config = (this as any).config || { characters: [] };
+    const roster = cfg.characters && cfg.characters.length ? cfg.characters : DEFAULT_CHARACTERS;
+
+    let initialSpeakers: Character[] = [];
+    if (Array.isArray(cfg.defaultSpeakers) && cfg.defaultSpeakers.length) {
+      const map = buildTokenMap(roster);
+      for (const n of cfg.defaultSpeakers) {
+        const c = map.get(normalize(n));
+        if (c && !initialSpeakers.find(s => s.name === c.name)) {
+          initialSpeakers.push(c);
+        }
+      }
+    } else {
+      const lilith = roster.find(c => normalize(c.name) === normalize("Lilith"));
+      if (lilith) initialSpeakers = [lilith];
+    }
+
     return {
       success: true,
       ui: { visible: true },
       state: {
-        lastSpeakers: [] as Character[],
-        balanceC: 0 as number,
+        lastSpeakers: initialSpeakers,
+        balanceC: 0,
       },
     };
   }
@@ -112,6 +142,7 @@ export class Stage extends StageBase<any, any, any, Config> {
     return {};
   }
 
+  /** Detect speakers & parse balance after each assistant reply */
   async afterResponse(botMessage: any): Promise<Partial<StageResponse<any, any>>> {
     const cfg: Config = (this as any).config || { characters: [] };
     const roster = cfg.characters && cfg.characters.length ? cfg.characters : DEFAULT_CHARACTERS;
@@ -133,10 +164,10 @@ export class Stage extends StageBase<any, any, any, Config> {
       if (c) speakers = [c];
     }
 
-    const limit = Math.max(1, cfg.maxPerTurn ?? 4); // 2x2 grid target
+    const limit = Math.max(1, cfg.maxPerTurn ?? 4); // 2×2 grid target
     if (speakers.length > limit) speakers = speakers.slice(0, limit);
 
-    // Balance parse
+    // Balance parse (absolute number visible in the text)
     let balanceC: number = (this as any).state?.balanceC ?? 0;
     if (cfg.showBalance !== false) {
       try {
@@ -155,7 +186,7 @@ export class Stage extends StageBase<any, any, any, Config> {
     return {} as Partial<StageResponse<any, any>>;
   }
 
-  /** Right panel UI — 1 col for 1 speaker, 2×2 grid for 2–4 speakers */
+  /** 1 col for 1 speaker, 2×2 grid for 2–4 speakers */
   render() {
     const cfg: Config = (this as any).config || { characters: [] };
     if (cfg.showPanel === false) return <></>;
@@ -166,7 +197,6 @@ export class Stage extends StageBase<any, any, any, Config> {
     const showBalance = cfg.showBalance !== false;
     const cBalance = (this as any)?.state?.balanceC ?? 0;
 
-    // columns: 1 speaker => 1fr, otherwise 2 columns
     const cols = speakers.length <= 1 ? 1 : 2;
     const gridTemplateColumns = cols === 1 ? "1fr" : "1fr 1fr";
 
